@@ -1,5 +1,6 @@
 # Estructura base para la malla curricular
 from typing import List, Dict, Optional
+from mallaDict import malla_curricular
 import copy
 
 class Asignatura:
@@ -15,28 +16,6 @@ class Asignatura:
     def __repr__(self):
         return f"{self.nombre} (S{self.semestre}, {self.creditos}cr, {self.tipologia})"
 
-# Ejemplo de malla curricular codificada (agrega más asignaturas según la imagen)
-malla_curricular: Dict[str, Asignatura] = {
-    "Fundamentos de Programación": Asignatura(
-        nombre="Fundamentos de Programación",
-        semestre=1,
-        creditos=4,
-        horas_presenciales=4,
-        horas_autonomas=8,
-        tipologia="Fundamental",
-        prerrequisitos=[]
-    ),
-    "Estructuras de Datos": Asignatura(
-        nombre="Estructuras de Datos",
-        semestre=2,
-        creditos=4,
-        horas_presenciales=4,
-        horas_autonomas=8,
-        tipologia="Obligatoria",
-        prerrequisitos=["Fundamentos de Programación"]
-    ),
-    # ...agregar más asignaturas aquí...
-}
 
 def agregar_asignatura(malla: Dict[str, Asignatura], asignatura: Asignatura):
     malla[asignatura.nombre] = asignatura
@@ -65,6 +44,33 @@ def eliminar_prerrequisito(malla: Dict[str, Asignatura], nombre: str, prerrequis
     if nombre in malla:
         if prerrequisito in malla[nombre].prerrequisitos:
             malla[nombre].prerrequisitos.remove(prerrequisito)
+
+def estadisticas_malla(malla: Dict[str, Asignatura]):
+    resumen = {
+        'total_asignaturas': len(malla),
+        'creditos_totales': 0,
+        'creditos_por_tipologia': {},
+        'asignaturas_por_semestre': {},
+    }
+    for asig in malla.values():
+        resumen['creditos_totales'] += asig.creditos
+        resumen['creditos_por_tipologia'].setdefault(asig.tipologia, 0)
+        resumen['creditos_por_tipologia'][asig.tipologia] += asig.creditos
+        resumen['asignaturas_por_semestre'].setdefault(asig.semestre, 0)
+        resumen['asignaturas_por_semestre'][asig.semestre] += 1
+    return resumen
+
+def dependientes_de(malla: Dict[str, Asignatura], nombre: str):
+    # Devuelve lista de asignaturas que dependen directa o indirectamente de 'nombre'
+    dependientes = set()
+    stack = [nombre]
+    while stack:
+        actual = stack.pop()
+        for asig in malla.values():
+            if actual in asig.prerrequisitos and asig.nombre not in dependientes:
+                dependientes.add(asig.nombre)
+                stack.append(asig.nombre)
+    return list(dependientes)
 
 # Ejemplo de uso: imprimir la malla
 if __name__ == "__main__":
@@ -96,3 +102,12 @@ if __name__ == "__main__":
     print("\n--- Malla de prueba (modificada) ---")
     for nombre, asignatura in malla_test.items():
         print(asignatura)
+
+    print("\n--- Estadísticas de la malla original ---")
+    stats = estadisticas_malla(malla_curricular)
+    for k, v in stats.items():
+        print(f"{k}: {v}")
+
+    # Simulación de impacto: ¿qué asignaturas dependen de 'Estructuras de Datos'?
+    print("\nAsignaturas dependientes de 'Estructuras de Datos':")
+    print(dependientes_de(malla_curricular, "Estructuras de Datos"))
