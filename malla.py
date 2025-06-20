@@ -1,6 +1,5 @@
 # Estructura base para la malla curricular
 from typing import List, Dict, Optional
-from mallaDict import malla_curricular
 import copy
 
 class Asignatura:
@@ -15,7 +14,6 @@ class Asignatura:
 
     def __repr__(self):
         return f"{self.nombre} (S{self.semestre}, {self.creditos}cr, {self.tipologia})"
-
 
 def agregar_asignatura(malla: Dict[str, Asignatura], asignatura: Asignatura):
     malla[asignatura.nombre] = asignatura
@@ -74,6 +72,7 @@ def dependientes_de(malla: Dict[str, Asignatura], nombre: str):
 
 # Ejemplo de uso: imprimir la malla
 if __name__ == "__main__":
+    from mallaDict import malla_curricular 
     print("--- Malla original ---")
     for nombre, asignatura in malla_curricular.items():
         print(asignatura)
@@ -111,3 +110,4 @@ if __name__ == "__main__":
     # Simulación de impacto: ¿qué asignaturas dependen de 'Estructuras de Datos'?
     print("\nAsignaturas dependientes de 'Estructuras de Datos':")
     print(dependientes_de(malla_curricular, "Estructuras de Datos"))
+

@@ -1,6 +1,6 @@
 import networkx as nx
 import matplotlib.pyplot as plt
-from malla import malla_curricular
+from mallaDict import malla_curricular
 
 # Crear el grafo dirigido de la malla curricular
 def graficar_malla(malla):
