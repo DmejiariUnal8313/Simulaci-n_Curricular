@@ -20,6 +20,9 @@ This document explains how to set up and run the Simulación Curricular project 
    ```bash
    # Copy and edit the environment file
    cp .env.example .env
+   
+   # Edit the .env file with your database credentials
+   # You can use .env.local as a reference
    ```
 
 3. **Start the application**:
@@ -137,6 +140,33 @@ docker/
 
 ## Troubleshooting
 
+### Docker Buildx Warning
+
+If you see the message "Docker Compose is configured to build using Bake, but buildx isn't installed", you have several options:
+
+**Option 1: Install Docker Buildx (Recommended)**
+```bash
+# For Arch/CachyOS
+sudo pacman -S docker-buildx
+
+# For Ubuntu/Debian
+sudo apt-get install docker-buildx-plugin
+
+# For other systems, check Docker documentation
+```
+
+**Option 2: Use the no-buildx compose file**
+```bash
+# Use the alternative compose file
+docker-compose -f docker-compose.no-buildx.yml up -d
+```
+
+**Option 3: Set Docker to use legacy builder**
+```bash
+# Disable buildx globally
+docker buildx use default
+```
+
 ### Container Issues
 
 ```bash
@@ -208,4 +238,3 @@ chmod -R 775 storage bootstrap/cache
 - **80**: Nginx web server
 - **5432**: PostgreSQL database
 - **6379**: Redis cache
-
