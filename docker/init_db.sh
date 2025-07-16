@@ -31,12 +31,12 @@ print_status "Database is ready!"
 
 # Run migrations
 print_status "Running database migrations..."
-docker-compose exec -T app php artisan migrate --force
+docker-compose exec -T app php artisan migrate:fresh
 
 # Check if we should seed the database
 if [ "$1" = "--seed" ]; then
     print_status "Seeding database..."
-    docker-compose exec -T app php artisan db:seed --force
+    docker-compose exec -T app php artisan db:seed
 fi
 
 # Create subjects table data if it doesn't exist
