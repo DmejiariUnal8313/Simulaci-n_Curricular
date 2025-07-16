@@ -49,6 +49,61 @@ class Student extends Model
     }
 
     /**
+     * Get the subjects that this student is currently taking (this semester).
+     */
+    public function currentSubjects()
+    {
+        return $this->hasMany(StudentCurrentSubject::class);
+    }
+
+    /**
+     * Get the subjects that this student is currently taking for current semester.
+     */
+    public function currentSemesterSubjects($period = null)
+    {
+        $period = $period ?? now()->year . '-' . (now()->month <= 6 ? '1' : '2');
+        return $this->currentSubjects()->where('semester_period', $period);
+    }
+
+    /**
+     * Get subjects the student can take next semester based on prerequisites.
+     */
+    public function getAvailableSubjects()
+    {
+        $passedCodes = $this->passedSubjects()->pluck('code')->toArray();
+        $currentCodes = $this->currentSemesterSubjects()->pluck('subject_code')->toArray();
+        
+        return Subject::whereNotIn('code', array_merge($passedCodes, $currentCodes))
+                     ->get()
+                     ->filter(function($subject) use ($passedCodes) {
+                         $prerequisites = $subject->prerequisites()->pluck('code')->toArray();
+                         return empty($prerequisites) || empty(array_diff($prerequisites, $passedCodes));
+                     });
+    }
+
+    /**
+     * Get subjects that will be blocked if a prerequisite is moved to a later semester.
+     */
+    public function getBlockedSubjects($subjectCode, $newSemester)
+    {
+        $subject = Subject::where('code', $subjectCode)->first();
+        if (!$subject) return collect();
+        
+        // Get subjects that require this subject as prerequisite
+        $dependentSubjects = $subject->requiredFor()->get();
+        
+        $blocked = collect();
+        foreach ($dependentSubjects as $dependent) {
+            // If dependent subject is in an earlier semester than the new semester
+            if ($dependent->semester <= $newSemester) {
+                $blocked->push($dependent);
+            }
+        }
+        
+        return $blocked;
+    }
+
+    /**
      * Get the student's GPA (Grade Point Average).
      */
     public function getGpaAttribute()
