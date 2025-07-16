@@ -65,29 +65,106 @@ function showAllSubjectData() {
 }
 
 function cleanupModals() {
+    console.log('🧹 Starting modal cleanup...');
+    
+    // Find all modals and backdrops
     const modals = document.querySelectorAll('.modal');
     const backdrops = document.querySelectorAll('.modal-backdrop');
     
-    modals.forEach(modal => {
+    console.log(`Found ${modals.length} modals and ${backdrops.length} backdrops`);
+    
+    // Clean up modal instances first
+    modals.forEach((modal, index) => {
         const instance = bootstrap.Modal.getInstance(modal);
         if (instance) {
-            instance.dispose();
+            try {
+                instance.dispose();
+                console.log(`Modal ${index + 1} instance disposed`);
+            } catch (e) {
+                console.warn(`Error disposing modal ${index + 1}:`, e);
+            }
         }
         modal.remove();
     });
     
-    backdrops.forEach(backdrop => {
-        backdrop.remove();
+    // Clean up backdrops with more thorough approach
+    backdrops.forEach((backdrop, index) => {
+        try {
+            backdrop.remove();
+            console.log(`Backdrop ${index + 1} removed`);
+        } catch (e) {
+            console.warn(`Error removing backdrop ${index + 1}:`, e);
+        }
     });
     
-    // Remove modal-open class from body
+    // Additional cleanup: search for any remaining backdrops by class variations
+    const remainingBackdrops = document.querySelectorAll('.modal-backdrop, .modal-backdrop.fade, .modal-backdrop.show, .modal-backdrop.fade.show');
+    if (remainingBackdrops.length > 0) {
+        console.log(`Found ${remainingBackdrops.length} additional backdrops to clean`);
+        remainingBackdrops.forEach((backdrop, index) => {
+            try {
+                backdrop.remove();
+                console.log(`Additional backdrop ${index + 1} removed`);
+            } catch (e) {
+                console.warn(`Error removing additional backdrop ${index + 1}:`, e);
+            }
+        });
+    }
+    
+    // Clean up body classes and styles
     document.body.classList.remove('modal-open');
     document.body.style.paddingRight = '';
+    document.body.style.overflow = '';
     
-    console.log('✅ Modals cleaned up');
+    // Force cleanup of any remaining modal-related classes
+    const bodyClasses = document.body.className.split(' ').filter(cls => !cls.includes('modal'));
+    document.body.className = bodyClasses.join(' ');
+    
+    console.log('✅ Modal cleanup completed');
+}
+
+// Check for orphaned backdrops
+function checkBackdrops() {
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    const modals = document.querySelectorAll('.modal');
+    
+    console.log('🔍 Backdrop Analysis:');
+    console.log(`Found ${backdrops.length} backdrops and ${modals.length} modals`);
+    
+    if (backdrops.length > 0) {
+        backdrops.forEach((backdrop, index) => {
+            console.log(`Backdrop ${index + 1}:`, {
+                className: backdrop.className,
+                display: backdrop.style.display,
+                visibility: backdrop.style.visibility,
+                opacity: backdrop.style.opacity
+            });
+        });
+    }
+    
+    if (modals.length > 0) {
+        modals.forEach((modal, index) => {
+            const instance = bootstrap.Modal.getInstance(modal);
+            console.log(`Modal ${index + 1}:`, {
+                id: modal.id,
+                className: modal.className,
+                hasInstance: !!instance,
+                display: modal.style.display
+            });
+        });
+    }
+    
+    // Check body classes
+    const bodyClasses = document.body.className.split(' ').filter(cls => cls.includes('modal'));
+    if (bodyClasses.length > 0) {
+        console.log('Body modal classes:', bodyClasses);
+    }
+    
+    return { backdrops, modals };
 }
 
 // Make functions available globally
 window.testDragAndDrop = testDragAndDrop;
 window.showAllSubjectData = showAllSubjectData;
 window.cleanupModals = cleanupModals;
+window.checkBackdrops = checkBackdrops;

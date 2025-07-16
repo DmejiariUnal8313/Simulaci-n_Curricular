@@ -6,6 +6,43 @@ document.addEventListener('DOMContentLoaded', function() {
     let simulationChanges = [];
     let originalCurriculum = {};
     
+    // Robust modal cleanup function
+    function cleanupModal(modalElement) {
+        if (!modalElement) return;
+        
+        try {
+            // Clean up Bootstrap modal instance
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) {
+                modalInstance.dispose();
+            }
+            
+            // Remove the modal element
+            modalElement.remove();
+            
+            // Additional cleanup: remove any orphaned backdrops
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => {
+                try {
+                    backdrop.remove();
+                } catch (e) {
+                    console.warn('Error removing backdrop:', e);
+                }
+            });
+            
+            // Clean up body classes if no more modals exist
+            const remainingModals = document.querySelectorAll('.modal');
+            if (remainingModals.length === 0) {
+                document.body.classList.remove('modal-open');
+                document.body.style.paddingRight = '';
+                document.body.style.overflow = '';
+            }
+            
+        } catch (e) {
+            console.warn('Error during modal cleanup:', e);
+        }
+    }
+    
     // Store original curriculum state
     function storeOriginalCurriculum() {
         // First, get the original order from server
@@ -496,12 +533,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add event listeners to ensure proper cleanup
         modalElement.addEventListener('hidden.bs.modal', function () {
-            // Clean up when modal is hidden
-            const modalInstance = bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) {
-                modalInstance.dispose();
-            }
-            modalElement.remove();
+            cleanupModal(modalElement);
         });
         
         modal.show();
@@ -638,12 +670,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add event listeners to ensure proper cleanup
         modalElement.addEventListener('hidden.bs.modal', function () {
-            // Clean up when modal is hidden
-            const modalInstance = bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) {
-                modalInstance.dispose();
-            }
-            modalElement.remove();
+            cleanupModal(modalElement);
         });
         
         modal.show();
@@ -830,12 +857,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add event listeners to ensure proper cleanup
         modalElement.addEventListener('hidden.bs.modal', function () {
-            // Clean up when modal is hidden
-            const modalInstance = bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) {
-                modalInstance.dispose();
-            }
-            modalElement.remove();
+            cleanupModal(modalElement);
         });
         
         modal.show();
@@ -968,12 +990,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add event listeners to ensure proper cleanup
         modalElement.addEventListener('hidden.bs.modal', function () {
-            // Clean up when modal is hidden
-            const modalInstance = bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) {
-                modalInstance.dispose();
-            }
-            modalElement.remove();
+            cleanupModal(modalElement);
         });
         
         modal.show();
