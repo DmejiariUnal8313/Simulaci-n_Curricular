@@ -17,6 +17,7 @@ class Subject extends Model
         'code',
         'name',
         'semester',
+        'credits',
     ];
 
     /**

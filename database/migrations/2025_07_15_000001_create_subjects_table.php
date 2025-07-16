@@ -15,6 +15,7 @@ return new class extends Migration
             $table->string('code', 10)->primary(); // Subject code as primary key
             $table->string('name'); // Subject name
             $table->integer('semester'); // Semester number (1-10)
+            $table->integer('credits'); // Credits for the subject
             $table->timestamps();
         });
     }

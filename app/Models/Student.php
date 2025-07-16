@@ -11,6 +11,7 @@ class Student extends Model
 
     protected $fillable = [
         'name',
+        'progress_percentage',
     ];
 
     /**
@@ -59,5 +60,29 @@ class Student extends Model
                       ->filter();
 
         return $grades->isEmpty() ? 0 : $grades->avg();
+    }
+
+    /**
+     * Calculate and return the student's progress percentage.
+     */
+    public function calculateProgressPercentage()
+    {
+        $passedSubjects = $this->subjects()
+                               ->wherePivot('status', 'passed')
+                               ->get();
+        
+        $totalCredits = $passedSubjects->sum('credits');
+        $totalPossibleCredits = 167; // Total credits for the program
+        
+        return round(($totalCredits / $totalPossibleCredits) * 100, 2);
+    }
+
+    /**
+     * Update the student's progress percentage.
+     */
+    public function updateProgressPercentage()
+    {
+        $this->progress_percentage = $this->calculateProgressPercentage();
+        $this->save();
     }
 }

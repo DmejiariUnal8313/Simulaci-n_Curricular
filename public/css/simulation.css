@@ -1,0 +1,165 @@
+/* Simulation View Styles */
+.subject-card {
+    width: 85px;
+    height: 75px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 3px;
+    margin: 3px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.subject-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    border-color: #0d6efd;
+}
+
+.subject-card.available {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border-color: #28a745;
+}
+
+.subject-card.taken {
+    background: linear-gradient(135deg, #cce5ff 0%, #b3d9ff 100%);
+    border-color: #007bff;
+}
+
+.subject-card.blocked {
+    background: linear-gradient(135deg, #f8d7da 0%, #f1aeb5 100%);
+    border-color: #dc3545;
+    opacity: 0.7;
+}
+
+.subject-card.prerequisite {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%) !important;
+    border-color: #ffc107 !important;
+    border-width: 3px !important;
+    transform: scale(1.05) !important;
+}
+
+.subject-card.unlocks {
+    background: linear-gradient(135deg, #e7f3ff 0%, #cce7ff 100%) !important;
+    border-color: #0066cc !important;
+    border-width: 3px !important;
+    transform: scale(1.05) !important;
+}
+
+.subject-card.selected {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%) !important;
+    border-color: #17a2b8 !important;
+    border-width: 3px !important;
+    transform: scale(1.1) !important;
+}
+
+.subject-name {
+    font-size: 8px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: #333;
+    margin-bottom: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.subject-code {
+    font-size: 7px;
+    color: #666;
+    font-weight: 500;
+    margin-top: auto;
+}
+
+.semester-column {
+    min-height: 500px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 10px;
+    padding: 10px 3px;
+    margin: 0 3px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.semester-title {
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    font-size: 14px;
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 15px;
+    text-align: center;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subjects-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.curriculum-grid {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    overflow-x: auto;
+    padding: 15px;
+    min-height: 550px;
+}
+
+.stats-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 15px;
+    color: white;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+body {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+}
+
+.main-title {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+}

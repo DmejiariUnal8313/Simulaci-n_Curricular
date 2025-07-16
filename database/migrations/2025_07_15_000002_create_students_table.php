@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('students', function (Blueprint $table) {
             $table->id(); // Auto-incrementable ID
             $table->string('name'); // Student name
+            $table->decimal('progress_percentage', 5, 2)->default(0); // Progress percentage (0-100)
             $table->timestamps();
         });
     }
