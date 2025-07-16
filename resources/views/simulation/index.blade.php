@@ -48,6 +48,27 @@
             opacity: 0.7;
         }
         
+        .subject-card.prerequisite {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%) !important;
+            border-color: #ffc107 !important;
+            border-width: 3px !important;
+            transform: scale(1.05) !important;
+        }
+        
+        .subject-card.unlocks {
+            background: linear-gradient(135deg, #e7f3ff 0%, #cce7ff 100%) !important;
+            border-color: #0066cc !important;
+            border-width: 3px !important;
+            transform: scale(1.05) !important;
+        }
+        
+        .subject-card.selected {
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%) !important;
+            border-color: #17a2b8 !important;
+            border-width: 3px !important;
+            transform: scale(1.1) !important;
+        }
+        
         .subject-name {
             font-size: 8px;
             font-weight: 600;
@@ -196,7 +217,7 @@
         <!-- Curriculum Grid -->
         <div class="curriculum-grid">
             @php
-                $subjects = \App\Models\Subject::orderBy('semester')->get();
+                $subjects = \App\Models\Subject::with(['prerequisites', 'requiredFor'])->orderBy('semester')->get();
                 $subjectsBySemester = $subjects->groupBy('semester');
             @endphp
 
@@ -206,7 +227,10 @@
                     <div class="subjects-container">
                         @if(isset($subjectsBySemester[$semester]))
                             @foreach($subjectsBySemester[$semester] as $subject)
-                                <div class="subject-card available" data-subject-id="{{ $subject->code }}">
+                                <div class="subject-card available" 
+                                     data-subject-id="{{ $subject->code }}"
+                                     data-prerequisites="{{ $subject->prerequisites->pluck('code')->implode(',') }}"
+                                     data-unlocks="{{ $subject->requiredFor->pluck('code')->implode(',') }}">
                                     <div class="subject-name">{{ $subject->name }}</div>
                                     <div class="subject-code">{{ $subject->code }}</div>
                                 </div>
@@ -223,21 +247,72 @@
         // Add click functionality to subject cards
         document.addEventListener('DOMContentLoaded', function() {
             const subjectCards = document.querySelectorAll('.subject-card');
+            let selectedCard = null;
+            
+            // Function to clear all highlights
+            function clearHighlights() {
+                subjectCards.forEach(card => {
+                    card.classList.remove('prerequisite', 'unlocks', 'selected');
+                    // Reset transform to avoid visual issues
+                    card.style.transform = '';
+                });
+            }
+            
+            // Function to highlight prerequisites and unlocks
+            function highlightRelated(card) {
+                clearHighlights();
+                
+                const subjectId = card.dataset.subjectId;
+                const prerequisites = card.dataset.prerequisites.split(',').filter(p => p.trim());
+                const unlocks = card.dataset.unlocks.split(',').filter(u => u.trim());
+                
+                // Highlight the selected card
+                card.classList.add('selected');
+                
+                // Highlight prerequisites (yellow)
+                prerequisites.forEach(prereqCode => {
+                    const prereqCard = document.querySelector(`[data-subject-id="${prereqCode}"]`);
+                    if (prereqCard) {
+                        prereqCard.classList.add('prerequisite');
+                    }
+                });
+                
+                // Highlight unlocks (blue)
+                unlocks.forEach(unlockCode => {
+                    const unlockCard = document.querySelector(`[data-subject-id="${unlockCode}"]`);
+                    if (unlockCard) {
+                        unlockCard.classList.add('unlocks');
+                    }
+                });
+                
+                console.log(`Selected: ${subjectId}`);
+                console.log(`Prerequisites: ${prerequisites.join(', ')}`);
+                console.log(`Unlocks: ${unlocks.join(', ')}`);
+            }
             
             subjectCards.forEach(card => {
                 card.addEventListener('click', function() {
                     const subjectId = this.dataset.subjectId;
-                    console.log('Subject clicked:', subjectId);
                     
-                    // Toggle between states for simulation
-                    if (this.classList.contains('available')) {
-                        this.classList.remove('available');
-                        this.classList.add('taken');
-                    } else if (this.classList.contains('taken')) {
-                        this.classList.remove('taken');
-                        this.classList.add('available');
+                    // If clicking the same card, toggle off
+                    if (selectedCard === this) {
+                        clearHighlights();
+                        selectedCard = null;
+                        return;
                     }
+                    
+                    // Highlight related subjects
+                    highlightRelated(this);
+                    selectedCard = this;
                 });
+            });
+            
+            // Clear highlights when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.subject-card')) {
+                    clearHighlights();
+                    selectedCard = null;
+                }
             });
         });
     </script>
