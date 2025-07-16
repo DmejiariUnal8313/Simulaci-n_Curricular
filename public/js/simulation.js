@@ -476,14 +476,34 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove existing modal if any
         const existingModal = document.getElementById('impactModal');
         if (existingModal) {
+            const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+            if (existingModalInstance) {
+                existingModalInstance.dispose();
+            }
             existingModal.remove();
         }
         
         // Add modal to body
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('impactModal'));
+        // Show modal with proper event handling
+        const modalElement = document.getElementById('impactModal');
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
+        
+        // Add event listeners to ensure proper cleanup
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            // Clean up when modal is hidden
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) {
+                modalInstance.dispose();
+            }
+            modalElement.remove();
+        });
+        
         modal.show();
     }
     
@@ -598,14 +618,34 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove existing modal if any
         const existingModal = document.getElementById('changesModal');
         if (existingModal) {
+            const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+            if (existingModalInstance) {
+                existingModalInstance.dispose();
+            }
             existingModal.remove();
         }
         
         // Add modal to body
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('changesModal'));
+        // Show modal with proper event handling
+        const modalElement = document.getElementById('changesModal');
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
+        
+        // Add event listeners to ensure proper cleanup
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            // Clean up when modal is hidden
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) {
+                modalInstance.dispose();
+            }
+            modalElement.remove();
+        });
+        
         modal.show();
     };
     
@@ -752,6 +792,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove existing modal if any
         const existingModal = document.getElementById('moveSubjectModal');
         if (existingModal) {
+            const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+            if (existingModalInstance) {
+                existingModalInstance.dispose();
+            }
             existingModal.remove();
         }
         
@@ -776,8 +820,24 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('moveSubjectModal'));
+        // Show modal with proper event handling
+        const modalElement = document.getElementById('moveSubjectModal');
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
+        
+        // Add event listeners to ensure proper cleanup
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            // Clean up when modal is hidden
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) {
+                modalInstance.dispose();
+            }
+            modalElement.remove();
+        });
+        
         modal.show();
     }
     
@@ -888,14 +948,34 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove existing modal if any
         const existingModal = document.getElementById('prereqModal');
         if (existingModal) {
+            const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+            if (existingModalInstance) {
+                existingModalInstance.dispose();
+            }
             existingModal.remove();
         }
         
         // Add modal to body
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('prereqModal'));
+        // Show modal with proper event handling
+        const modalElement = document.getElementById('prereqModal');
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
+        
+        // Add event listeners to ensure proper cleanup
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            // Clean up when modal is hidden
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) {
+                modalInstance.dispose();
+            }
+            modalElement.remove();
+        });
+        
         modal.show();
     }
     
