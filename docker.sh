@@ -113,6 +113,14 @@ composer() {
     docker-compose exec app composer "$@"
 }
 
+# Force reinstall composer dependencies
+composer-reinstall() {
+    print_status "Forcing Composer dependencies reinstallation..."
+    docker-compose exec app rm -rf vendor
+    docker-compose exec app composer install --optimize-autoloader
+    print_status "Composer dependencies reinstalled successfully"
+}
+
 # Run npm commands
 npm() {
     docker-compose exec app npm "$@"
@@ -134,6 +142,7 @@ help() {
     echo "  db-shell   - Access database container"
     echo "  artisan    - Run Laravel artisan commands"
     echo "  composer   - Run composer commands"
+    echo "  composer-reinstall - Force reinstall composer dependencies"
     echo "  npm        - Run npm commands"
     echo "  help       - Show this help message"
     echo ""
@@ -142,6 +151,7 @@ help() {
     echo "  ./docker.sh logs app"
     echo "  ./docker.sh artisan migrate"
     echo "  ./docker.sh composer install"
+    echo "  ./docker.sh composer-reinstall"
     echo "  ./docker.sh npm run dev"
 }
 
@@ -176,6 +186,9 @@ case "$1" in
     composer)
         shift
         composer "$@"
+        ;;
+    composer-reinstall)
+        composer-reinstall
         ;;
     npm)
         shift

@@ -4,11 +4,23 @@ set -e
 # Wait a moment for volume to be mounted
 sleep 2
 
-# Check if vendor directory exists, if not install dependencies
-if [ ! -d "/app/vendor" ]; then
-    echo "Installing Composer dependencies..."
-    cd /app
-    composer install --optimize-autoloader
+# Always ensure Composer dependencies are installed and up to date
+echo "Checking Composer dependencies..."
+cd /app
+
+# Check if vendor directory exists or if composer.lock is newer than vendor
+if [ ! -d "/app/vendor" ] || [ ! -f "/app/vendor/autoload.php" ] || [ "/app/composer.lock" -nt "/app/vendor/autoload.php" ]; then
+    echo "Installing/updating Composer dependencies..."
+    composer install --optimize-autoloader --no-dev
+    
+    # Verify installation was successful
+    if [ ! -f "/app/vendor/autoload.php" ]; then
+        echo "ERROR: Composer installation failed!"
+        exit 1
+    fi
+    echo "Composer dependencies installed successfully."
+else
+    echo "Composer dependencies are up to date."
 fi
 
 # Check if .env exists, if not copy from example
@@ -35,11 +47,17 @@ fi
 # Install Pest if not already installed
 if [ ! -f "/app/composer.lock" ] || ! grep -q "pestphp/pest" /app/composer.lock; then
     echo "Installing Pest..."
-    composer require pestphp/pest --dev --no-interaction
+    composer require pestphp/pest --dev --no-interaction --no-scripts
+    
+    # Verify Pest installation
+    if ! grep -q "pestphp/pest" /app/composer.lock; then
+        echo "Warning: Pest installation may have failed"
+    fi
     
     # Create Pest.php if it doesn't exist
     if [ ! -f "/app/tests/Pest.php" ]; then
         echo "Creating Pest configuration..."
+        mkdir -p /app/tests
         touch /app/tests/Pest.php
         echo "<?php declare(strict_types=1);" > /app/tests/Pest.php
     fi
@@ -88,6 +106,12 @@ fi
 # Clear cache to ensure configuration is loaded
 echo "Clearing application cache..."
 php artisan config:clear --no-interaction
+
+# Verify that the application is properly initialized
+if [ ! -f "/app/vendor/autoload.php" ]; then
+    echo "ERROR: autoload.php not found after initialization!"
+    exit 1
+fi
 
 # Only clear cache if database is ready
 if php artisan migrate:status --no-interaction 2>/dev/null | grep -q "Migration table created successfully\|Migration table found"; then
