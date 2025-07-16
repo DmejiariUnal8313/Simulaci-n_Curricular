@@ -67,18 +67,20 @@ class SubjectSeeder extends Seeder
             ['code' => '4100565', 'name' => 'LEGISLACIÓN TECNOLÓGICA', 'semester' => 9],
             
             // 10th semester
-            ['code' => '4100565', 'name' => 'TRABAJO DE GRADO', 'semester' => 10],
+            ['code' => '4100573', 'name' => 'TRABAJO DE GRADO', 'semester' => 10],
             ['code' => '4100559', 'name' => 'PRÁCTICA', 'semester' => 10],
         ];
 
         foreach ($subjects as $subject) {
-            DB::table('subjects')->insert([
-                'code' => $subject['code'],
-                'name' => $subject['name'],
-                'semester' => $subject['semester'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            DB::table('subjects')->updateOrInsert(
+                ['code' => $subject['code']], // Condition to check
+                [
+                    'name' => $subject['name'],
+                    'semester' => $subject['semester'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
         }
     }
 }

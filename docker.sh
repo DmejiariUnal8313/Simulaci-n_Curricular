@@ -19,44 +19,17 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check Docker installation
-check_docker() {
-    if ! command -v docker &> /dev/null; then
-        print_error "Docker is not installed. Please install Docker first."
-        exit 1
-    fi
-    
-    if ! docker info &> /dev/null; then
-        print_error "Docker daemon is not running. Please start Docker service."
-        exit 1
-    fi
-    
-    if ! command -v docker-compose &> /dev/null; then
-        print_error "Docker Compose is not installed. Please install Docker Compose first."
-        exit 1
-    fi
-}
-
-# Check Docker Buildx
-check_buildx() {
-    if ! docker buildx version &>/dev/null; then
-        print_warning "Docker Buildx not found. Installing..."
-        # For Arch-based systems
-        if command -v pacman &> /dev/null; then
-            print_status "Installing docker-buildx via pacman..."
-            sudo pacman -S docker-buildx --noconfirm
-        else
-            print_warning "Please install docker-buildx manually for your system"
-        fi
-    fi
-}
-
 # Check if .env file exists
 check_env_file() {
     if [ ! -f .env ]; then
-        print_warning ".env file not found. Please create one based on .env.example"
-        print_status "You can use .env.local as a reference"
-        return 1
+        print_warning ".env file not found. Creating from .env.example..."
+        if [ -f .env.example ]; then
+            cp .env.example .env
+            print_status "Please edit .env file with your database credentials"
+        else
+            print_error ".env.example not found. Please create .env file manually"
+            return 1
+        fi
     fi
     return 0
 }
@@ -64,12 +37,6 @@ check_env_file() {
 # Setup the project
 setup() {
     print_status "Setting up Simulación Curricular project..."
-    
-    # Check Docker installation
-    check_docker
-    
-    # Check for Buildx
-    check_buildx
     
     # Check for .env file
     if ! check_env_file; then
@@ -81,27 +48,21 @@ setup() {
     print_status "Building and starting containers..."
     docker-compose up -d --build
     
-    # Wait for database to be ready
-    print_status "Waiting for database to be ready..."
-    sleep 10
+    # Wait for services to be ready
+    print_status "Waiting for services to be ready..."
+    sleep 15
     
-    # Install dependencies
-    print_status "Installing PHP dependencies..."
-    docker-compose exec app composer install
+    # Initialize database
+    print_status "Initializing database..."
+    if [ -f "./docker/init_db.sh" ]; then
+        ./docker/init_db.sh --seed
+    else
+        print_warning "Database initialization script not found, running manual setup..."
+        docker-compose exec app php artisan migrate --force
+        docker-compose exec app php artisan db:seed --force
+    fi
     
-    # Generate application key
-    print_status "Generating application key..."
-    docker-compose exec app php artisan key:generate
-    
-    # Run migrations
-    print_status "Running migrations..."
-    docker-compose exec app php artisan migrate
-    
-    # Seed database
-    print_status "Seeding database..."
-    docker-compose exec app php artisan db:seed
-    
-    print_status "Setup complete! Application is running at http://localhost"
+    print_status "Setup complete! Application is running at http://localhost:8080"
 }
 
 # Start the application
@@ -125,12 +86,21 @@ restart() {
 
 # Show logs
 logs() {
-    docker-compose logs -f
+    if [ -n "$1" ]; then
+        docker-compose logs -f "$1"
+    else
+        docker-compose logs -f
+    fi
 }
 
 # Access application container
 shell() {
     docker-compose exec app bash
+}
+
+# Access database container
+db_shell() {
+    docker-compose exec db psql -U ${DB_USERNAME} -d ${DB_DATABASE}
 }
 
 # Run artisan commands
@@ -143,6 +113,11 @@ composer() {
     docker-compose exec app composer "$@"
 }
 
+# Run npm commands
+npm() {
+    docker-compose exec app npm "$@"
+}
+
 # Show help
 help() {
     echo "Simulación Curricular - Docker Management Script"
@@ -150,20 +125,24 @@ help() {
     echo "Usage: ./docker.sh [command]"
     echo ""
     echo "Commands:"
-    echo "  setup     - Initial setup (build, migrate, seed)"
-    echo "  start     - Start containers"
-    echo "  stop      - Stop containers"
-    echo "  restart   - Restart containers"
-    echo "  logs      - Show container logs"
-    echo "  shell     - Access application container"
-    echo "  artisan   - Run Laravel artisan commands"
-    echo "  composer  - Run composer commands"
-    echo "  help      - Show this help message"
+    echo "  setup      - Initial setup (build, migrate, seed)"
+    echo "  start      - Start containers"
+    echo "  stop       - Stop containers"
+    echo "  restart    - Restart containers"
+    echo "  logs       - Show container logs (optional: specify service)"
+    echo "  shell      - Access application container"
+    echo "  db-shell   - Access database container"
+    echo "  artisan    - Run Laravel artisan commands"
+    echo "  composer   - Run composer commands"
+    echo "  npm        - Run npm commands"
+    echo "  help       - Show this help message"
     echo ""
     echo "Examples:"
     echo "  ./docker.sh setup"
+    echo "  ./docker.sh logs app"
     echo "  ./docker.sh artisan migrate"
     echo "  ./docker.sh composer install"
+    echo "  ./docker.sh npm run dev"
 }
 
 # Main script logic
@@ -181,10 +160,14 @@ case "$1" in
         restart
         ;;
     logs)
-        logs
+        shift
+        logs "$@"
         ;;
     shell)
         shell
+        ;;
+    db-shell)
+        db_shell
         ;;
     artisan)
         shift
@@ -193,6 +176,10 @@ case "$1" in
     composer)
         shift
         composer "$@"
+        ;;
+    npm)
+        shift
+        npm "$@"
         ;;
     help|*)
         help

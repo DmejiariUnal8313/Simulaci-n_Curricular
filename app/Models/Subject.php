@@ -30,6 +30,22 @@ class Subject extends Model
     }
 
     /**
+     * Get the prerequisites for this subject.
+     */
+    public function prerequisites()
+    {
+        return $this->belongsToMany(Subject::class, 'subject_prerequisites', 'subject_code', 'prerequisite_code');
+    }
+
+    /**
+     * Get the subjects that have this subject as a prerequisite.
+     */
+    public function requiredFor()
+    {
+        return $this->belongsToMany(Subject::class, 'subject_prerequisites', 'prerequisite_code', 'subject_code');
+    }
+
+    /**
      * Scope a query to only include subjects from a specific semester.
      */
     public function scopeSemester($query, $semester)

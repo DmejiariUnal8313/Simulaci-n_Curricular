@@ -1,12 +1,19 @@
 # Docker Setup for Simulación Curricular
 
-This document explains how to set up and run the Simulación Curricular project using Docker.
+This document explains how to set up and run the Simulación Curricular project using Docker with separated services.
 
 ## Prerequisites
 
 - Docker
 - Docker Compose
 - Git
+
+## Architecture
+
+The project uses a multi-container setup:
+- **app**: PHP 8.3-FPM with auto-initialization
+- **web**: Nginx web server
+- **db**: PostgreSQL 15 database
 
 ## Quick Start
 
@@ -22,12 +29,12 @@ This document explains how to set up and run the Simulación Curricular project 
    cp .env.example .env
    
    # Edit the .env file with your database credentials
-   # You can use .env.local as a reference
+   nano .env
    ```
 
 3. **Start the application**:
    ```bash
-   # Make the script executable (if not already done)
+   # Make the script executable
    chmod +x docker.sh
    
    # Run the initial setup
@@ -36,22 +43,35 @@ This document explains how to set up and run the Simulación Curricular project 
 
    This will:
    - Build the Docker containers
-   - Install PHP dependencies
+   - Install PHP dependencies automatically
    - Generate application key
    - Run database migrations
    - Seed the database with initial data
 
 4. **Access the application**:
-   - Application: http://localhost
+   - Application: http://localhost:8080
    - Database: localhost:5432
 
 ## Docker Services
 
-The docker-compose.yml file includes:
+### App Container
+- **Image**: Custom PHP 8.3-FPM
+- **Features**: 
+  - Auto-installs Composer dependencies
+  - Auto-generates Laravel key
+  - Installs Laravel Breeze for authentication
+  - Installs Pest for testing
+  - Builds NPM assets automatically
 
-- **app**: Laravel application with PHP 8.3, Nginx, and Supervisor
-- **postgres**: PostgreSQL 15 database
-- **redis**: Redis cache (optional)
+### Web Container
+- **Image**: Nginx Alpine
+- **Port**: 8080
+- **Function**: Serves the Laravel application
+
+### Database Container
+- **Image**: PostgreSQL 15
+- **Port**: 5432
+- **Persistence**: Data stored in Docker volume
 
 ## Available Commands
 
@@ -70,11 +90,15 @@ The `docker.sh` script provides convenient commands:
 # Restart containers
 ./docker.sh restart
 
-# View logs
+# View logs (all services or specific service)
 ./docker.sh logs
+./docker.sh logs app
 
 # Access app container shell
 ./docker.sh shell
+
+# Access database shell
+./docker.sh db-shell
 
 # Run Laravel artisan commands
 ./docker.sh artisan migrate
@@ -83,6 +107,10 @@ The `docker.sh` script provides convenient commands:
 # Run composer commands
 ./docker.sh composer install
 ./docker.sh composer update
+
+# Run npm commands
+./docker.sh npm install
+./docker.sh npm run dev
 
 # Show help
 ./docker.sh help
@@ -95,9 +123,9 @@ The `docker.sh` script provides convenient commands:
 Create a `.env` file based on `.env.example` and set:
 
 ```env
-# Database Configuration (use these in your .env file)
+# Database Configuration
 DB_CONNECTION=pgsql
-DB_HOST=postgres
+DB_HOST=db
 DB_PORT=5432
 DB_DATABASE=simulacion_curricular
 DB_USERNAME=postgres
@@ -105,99 +133,32 @@ DB_PASSWORD=your_secure_password_here
 
 # Application
 APP_KEY=your_app_key_here
-APP_URL=http://localhost
+APP_URL=http://localhost:8080
 ```
 
-### Docker Compose Environment Variables
+## Auto-Initialization Features
 
-Create a `.env.local` file for Docker Compose variables:
+The app container includes an entrypoint script that automatically:
 
-```env
-# Database credentials for Docker containers
-POSTGRES_DB=simulacion_curricular
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your_secure_password_here
-```
+1. **Installs Dependencies**: Runs `composer install` if vendor directory is missing
+2. **Environment Setup**: Copies `.env.example` to `.env` if missing
+3. **Key Generation**: Generates Laravel application key
+4. **Laravel Breeze**: Installs authentication scaffolding
+5. **Pest Testing**: Installs Pest testing framework
+6. **Asset Building**: Runs `npm install` and `npm run build`
+7. **Database Migrations**: Runs migrations when database is ready
+8. **Permissions**: Sets proper file permissions
 
-## Directory Structure
+## Database Initialization
 
-```
-docker/
-├── nginx/
-│   ├── default.conf    # Nginx virtual host configuration
-│   └── nginx.conf      # Main Nginx configuration
-├── php/
-│   └── local.ini       # PHP configuration
-└── supervisor/
-    └── supervisord.conf # Supervisor configuration for managing processes
-```
-
-## Security Notes
-
-- **Never commit passwords**: Environment files with real passwords should not be committed
-- **Use strong passwords**: Generate secure passwords for production environments
-- **Environment separation**: Use different passwords for development and production
-
-## Troubleshooting
-
-### Docker Buildx Warning
-
-If you see the message "Docker Compose is configured to build using Bake, but buildx isn't installed", you have several options:
-
-**Option 1: Install Docker Buildx (Recommended)**
-```bash
-# For Arch/CachyOS
-sudo pacman -S docker-buildx
-
-# For Ubuntu/Debian
-sudo apt-get install docker-buildx-plugin
-
-# For other systems, check Docker documentation
-```
-
-**Option 2: Use the no-buildx compose file**
-```bash
-# Use the alternative compose file
-docker-compose -f docker-compose.no-buildx.yml up -d
-```
-
-**Option 3: Set Docker to use legacy builder**
-```bash
-# Disable buildx globally
-docker buildx use default
-```
-
-### Container Issues
+The `docker/init_db.sh` script provides additional database setup:
 
 ```bash
-# Check container status
-docker-compose ps
+# Initialize database with seeding
+./docker/init_db.sh --seed
 
-# View container logs
-docker-compose logs app
-docker-compose logs postgres
-
-# Restart specific service
-docker-compose restart app
-```
-
-### Database Issues
-
-```bash
-# Access database container
-docker-compose exec postgres psql -U postgres -d simulacion_curricular
-
-# Reset database
-./docker.sh artisan migrate:fresh --seed
-```
-
-### Permission Issues
-
-```bash
-# Fix Laravel permissions
-./docker.sh shell
-chown -R www-data:www-data storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
+# Check database status
+./docker/init_db.sh
 ```
 
 ## Development Workflow
@@ -221,8 +182,83 @@ chmod -R 775 storage bootstrap/cache
 
 5. **View logs**:
    ```bash
-   ./docker.sh logs
+   ./docker.sh logs app
+   ./docker.sh logs web
+   ./docker.sh logs db
    ```
+
+## Troubleshooting
+
+### Container Issues
+
+```bash
+# Check container status
+docker-compose ps
+
+# View specific container logs
+./docker.sh logs app
+./docker.sh logs web
+./docker.sh logs db
+
+# Restart specific service
+docker-compose restart app
+```
+
+### Database Issues
+
+```bash
+# Access database directly
+./docker.sh db-shell
+
+# Reset database
+./docker.sh artisan migrate:fresh --seed
+```
+
+### Permission Issues
+
+```bash
+# Fix Laravel permissions (handled automatically by entrypoint)
+./docker.sh shell
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+```
+
+### Build Issues
+
+```bash
+# Rebuild containers
+docker-compose down
+docker-compose up -d --build
+
+# Clear Docker cache
+docker system prune -f
+```
+
+## File Structure
+
+```
+docker/
+├── nginx/
+│   └── default.conf    # Nginx configuration
+├── php/
+│   ├── Dockerfile      # PHP container definition
+│   ├── entrypoint.sh   # Auto-initialization script
+│   └── local.ini       # PHP configuration
+└── init_db.sh          # Database initialization script
+```
+
+## Ports
+
+- **8080**: Nginx web server
+- **5432**: PostgreSQL database
+- **9000**: PHP-FPM (internal)
+
+## Security Notes
+
+- Environment files with real passwords should not be committed
+- Use strong passwords for production environments
+- The app container runs as www-data user for security
+- Database is isolated in its own container
 
 ## Production Considerations
 
@@ -232,9 +268,4 @@ chmod -R 775 storage bootstrap/cache
 - Set up proper logging and monitoring
 - Use production-optimized Docker images
 - Configure proper backup strategies
-
-## Ports
-
-- **80**: Nginx web server
-- **5432**: PostgreSQL database
-- **6379**: Redis cache
+- Consider using Docker Swarm or Kubernetes for orchestration
