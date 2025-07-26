@@ -277,22 +277,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const controlsHtml = `
             <div class="simulation-controls mb-3">
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-8">
                         <div id="simulation-status"></div>
                     </div>
-                    <div class="col-md-6 text-end">
-                        <button class="btn btn-primary me-2" onclick="analyzeImpact()">
-                            <i class="fas fa-chart-line me-1"></i>
-                            Analizar impacto
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-info me-2" onclick="openConvalidation()">
+                            <i class="fas fa-exchange-alt me-1"></i>
+                            Realizar Convalidación
                         </button>
-                        <button class="btn btn-warning me-2" onclick="resetSimulation()">
-                            <i class="fas fa-undo me-1"></i>
-                            Resetear
-                        </button>
-                        <button class="btn btn-success" onclick="saveSimulation()">
-                            <i class="fas fa-save me-1"></i>
-                            Guardar simulación
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-primary" onclick="analyzeImpact()">
+                                <i class="fas fa-chart-line me-1"></i>
+                                Analizar
+                            </button>
+                            <button class="btn btn-warning" onclick="resetSimulation()">
+                                <i class="fas fa-undo me-1"></i>
+                                Reset
+                            </button>
+                            <button class="btn btn-success" onclick="saveSimulation()">
+                                <i class="fas fa-save me-1"></i>
+                                Guardar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1030,6 +1036,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (modal) {
             modal.hide();
         }
+    };
+    
+    // Open convalidation system
+    window.openConvalidation = function() {
+        window.location.href = '/convalidation';
     };
     
     // Initialize simulation when page loads

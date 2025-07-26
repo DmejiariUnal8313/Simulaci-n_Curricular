@@ -1,0 +1,11 @@
+codigo,nombre,creditos,semestre,descripcion
+INF101,Introducción a la Informática,3,1,Conceptos básicos de informática y computación
+MAT101,Matemáticas I,4,1,Álgebra lineal y cálculo diferencial
+COM101,Comunicación y Redacción,2,1,Técnicas de comunicación escrita y oral
+PRG101,Programación I,4,2,Fundamentos de programación y algoritmos
+MAT102,Matemáticas II,4,2,Cálculo integral y ecuaciones diferenciales
+FIS101,Física I,3,2,Mecánica clásica y termodinámica
+PRG102,Programación II,4,3,Programación orientada a objetos
+EST101,Estadística,3,3,Estadística descriptiva e inferencial
+BD101,Bases de Datos I,4,4,Fundamentos de bases de datos relacionales
+ING101,Inglés Técnico,2,4,Inglés aplicado a la informática

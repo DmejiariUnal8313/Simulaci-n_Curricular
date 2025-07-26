@@ -316,15 +316,188 @@
     backdrop-filter: blur(10px);
 }
 
-.stat-number {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 3px;
+.stat-card {
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.3s ease;
 }
 
-.stat-label {
-    font-size: 0.8rem;
-    opacity: 0.9;
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.convalidation-progress {
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.external-subject-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.external-subject-card.pending {
+    border-left-color: #ffc107;
+    background-color: #fff9e6;
+}
+
+.external-subject-card.convalidated {
+    border-left-color: #28a745;
+    background-color: #e8f5e8;
+}
+
+.external-subject-card.free-elective {
+    border-left-color: #17a2b8;
+    background-color: #e6f7ff;
+}
+
+.convalidation-type-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.similarity-badge {
+    background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.upload-area:hover {
+    border-color: #007bff;
+    background-color: #e3f2fd;
+}
+
+.upload-area.dragover {
+    border-color: #28a745;
+    background-color: #e8f5e8;
+}
+
+.file-format-guide {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.progress-indicator {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.convalidation-modal .modal-content {
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.convalidation-suggestions {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.suggestion-item {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.suggestion-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+/* Semester tabs styling */
+.nav-tabs .nav-link {
+    border-radius: 10px 10px 0 0;
+    margin-right: 5px;
+}
+
+.nav-tabs .nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+}
+
+/* Table improvements for convalidations */
+.convalidation-table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.convalidation-table .table-row {
+    transition: all 0.3s ease;
+}
+
+.convalidation-table .table-row:hover {
+    background-color: #f8f9fa;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .convalidation-dashboard {
+        padding: 10px 0;
+    }
+    
+    .stat-card {
+        margin-bottom: 15px;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        border-radius: 5px !important;
+        margin-bottom: 5px;
+    }
+}
+
+/* Loading states */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Success states */
+.success-animation {
+    animation: successPulse 2s ease-in-out;
+}
+
+@keyframes successPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); background-color: #d4edda; }
+    100% { transform: scale(1); }
 }
 
 body {
@@ -341,4 +514,196 @@ body {
     text-align: center;
     margin-bottom: 20px;
     font-size: 1.8rem;
+}
+
+/* Convalidation System Styles */
+.convalidation-dashboard {
+    padding: 20px 0;
+}
+
+.stat-card {
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.convalidation-progress {
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.external-subject-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.external-subject-card.pending {
+    border-left-color: #ffc107;
+    background-color: #fff9e6;
+}
+
+.external-subject-card.convalidated {
+    border-left-color: #28a745;
+    background-color: #e8f5e8;
+}
+
+.external-subject-card.free-elective {
+    border-left-color: #17a2b8;
+    background-color: #e6f7ff;
+}
+
+.convalidation-type-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.similarity-badge {
+    background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.upload-area:hover {
+    border-color: #007bff;
+    background-color: #e3f2fd;
+}
+
+.upload-area.dragover {
+    border-color: #28a745;
+    background-color: #e8f5e8;
+}
+
+.file-format-guide {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.progress-indicator {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.convalidation-modal .modal-content {
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.convalidation-suggestions {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.suggestion-item {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.suggestion-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+/* Semester tabs styling */
+.nav-tabs .nav-link {
+    border-radius: 10px 10px 0 0;
+    margin-right: 5px;
+}
+
+.nav-tabs .nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+}
+
+/* Table improvements for convalidations */
+.convalidation-table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.convalidation-table .table-row {
+    transition: all 0.3s ease;
+}
+
+.convalidation-table .table-row:hover {
+    background-color: #f8f9fa;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .convalidation-dashboard {
+        padding: 10px 0;
+    }
+    
+    .stat-card {
+        margin-bottom: 15px;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        border-radius: 5px !important;
+        margin-bottom: 5px;
+    }
+}
+
+/* Career completion styles */
+.career-completion-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e7f3ff 100%);
+    border: 2px solid #007bff;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+}
+
+.career-completion-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.15);
+}
+
+.career-percentage {
+    font-size: 2.5rem !important;
+    font-weight: bold;
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.convalidation-status {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.convalidation-status .badge {
+    font-size: 0.7rem;
+}
+
+.subject-card.convalidated {
+    border-left: 4px solid #28a745;
+    background: linear-gradient(135deg, #f8fff9 0%, #e6ffed 100%);
+}
+
+.subject-card.pending {
+    border-left: 4px solid #ffc107;
+    background: linear-gradient(135deg, #fffdf0 0%, #fff7e6 100%);
 }
