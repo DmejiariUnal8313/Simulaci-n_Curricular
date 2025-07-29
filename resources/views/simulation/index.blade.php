@@ -51,6 +51,24 @@
             </div>
         </div>
 
+        <!-- Curriculum Controls -->
+        <div class="curriculum-controls mb-3">
+            <div class="row">
+                <div class="col-md-6">
+                    <button class="btn btn-success" onclick="addNewSubject()">
+                        <i class="fas fa-plus me-1"></i>
+                        Agregar Materia
+                    </button>
+                </div>
+                <div class="col-md-6 text-end">
+                    <button class="btn btn-info" onclick="exportModifiedCurriculum()">
+                        <i class="fas fa-download me-1"></i>
+                        Exportar Malla Modificada
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Curriculum Grid -->
         <div class="curriculum-grid">
             @php

@@ -289,4 +289,185 @@ class ConvalidationController extends Controller
                 ->withErrors(['error' => 'Error al eliminar la malla: ' . $e->getMessage()]);
         }
     }
+
+    /**
+     * Analyze the impact of migrating students from original curriculum to external curriculum with convalidations
+     */
+    public function analyzeConvalidationImpact(ExternalCurriculum $externalCurriculum)
+    {
+        try {
+            // Get all students from the original curriculum
+            $students = Student::with([
+                'subjects' => function($query) {
+                    $query->wherePivot('status', 'passed');
+                },
+                'currentSubjects.subject'
+            ])->get();
+
+            // Get all convalidations for this external curriculum
+            $convalidations = SubjectConvalidation::where('external_curriculum_id', $externalCurriculum->id)
+                ->with(['externalSubject', 'internalSubject'])
+                ->get();
+
+            // Get all subjects from original curriculum
+            $originalSubjects = Subject::with(['prerequisites', 'requiredFor'])->get()->keyBy('code');
+            $totalOriginalSubjects = $originalSubjects->count();
+
+            $results = [
+                'total_students' => $students->count(),
+                'affected_students' => 0,
+                'students_improved' => 0,
+                'students_same' => 0,
+                'students_worsened' => 0,
+                'affected_percentage' => 0,
+                'average_progress_change' => 0,
+                'total_convalidated_subjects' => $convalidations->count(),
+                'average_credits_reduced' => 0,
+                'average_semesters_reduced' => 0,
+                'student_details' => [],
+                'subject_impact' => []
+            ];
+
+            $totalProgressChange = 0;
+            $subjectImpactMap = [];
+
+            foreach ($students as $student) {
+                $impact = $this->calculateStudentConvalidationImpact($student, $convalidations, $originalSubjects, $totalOriginalSubjects);
+                
+                if ($impact['has_impact']) {
+                    $results['affected_students']++;
+                    
+                    if ($impact['progress_change'] > 0) {
+                        $results['students_improved']++;
+                    } elseif ($impact['progress_change'] < 0) {
+                        $results['students_worsened']++;
+                    } else {
+                        $results['students_same']++;
+                    }
+
+                    $totalProgressChange += $impact['progress_change'];
+                    
+                    $results['student_details'][] = [
+                        'student_id' => $student->id,
+                        'name' => $student->name,
+                        'original_progress' => round($impact['original_progress'], 1),
+                        'new_progress' => round($impact['new_progress'], 1),
+                        'progress_change' => round($impact['progress_change'], 1),
+                        'convalidated_count' => $impact['convalidated_subjects_count'],
+                        'convalidated_subjects' => $impact['convalidated_subjects']
+                    ];
+
+                    // Track subject impact
+                    foreach ($impact['convalidated_subjects'] as $subjectCode) {
+                        if (!isset($subjectImpactMap[$subjectCode])) {
+                            $subjectImpactMap[$subjectCode] = [
+                                'students_benefited' => 0,
+                                'total_benefit' => 0
+                            ];
+                        }
+                        $subjectImpactMap[$subjectCode]['students_benefited']++;
+                        $subjectImpactMap[$subjectCode]['total_benefit'] += max(0, $impact['progress_change']);
+                    }
+                }
+            }
+
+            // Calculate final statistics
+            $results['affected_percentage'] = $results['total_students'] > 0 
+                ? round(($results['affected_students'] / $results['total_students']) * 100, 1)
+                : 0;
+
+            $results['average_progress_change'] = $results['affected_students'] > 0 
+                ? round($totalProgressChange / $results['affected_students'], 1)
+                : 0;
+
+            // Calculate subject impact details
+            foreach ($convalidations as $convalidation) {
+                $externalSubjectCode = $convalidation->externalSubject->code;
+                $impactData = $subjectImpactMap[$externalSubjectCode] ?? ['students_benefited' => 0, 'total_benefit' => 0];
+                
+                $results['subject_impact'][] = [
+                    'external_subject_code' => $externalSubjectCode,
+                    'external_subject_name' => $convalidation->externalSubject->name,
+                    'internal_subject_name' => $convalidation->internalSubject ? $convalidation->internalSubject->name : 'N/A',
+                    'convalidation_type' => $convalidation->convalidation_type,
+                    'students_benefited' => $impactData['students_benefited'],
+                    'average_benefit' => $impactData['students_benefited'] > 0 ? round($impactData['total_benefit'] / $impactData['students_benefited'], 1) : 0,
+                    'impact_type' => $this->classifyImpactType($impactData['students_benefited'], $results['total_students'])
+                ];
+            }
+
+            // Calculate average reductions (simplified calculation)
+            $results['average_credits_reduced'] = round($results['total_convalidated_subjects'] * 3, 1); // Assuming 3 credits per subject
+            $results['average_semesters_reduced'] = round($results['average_progress_change'] / 10, 1); // Rough estimate
+
+            return response()->json([
+                'success' => true,
+                'results' => $results
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al analizar el impacto: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Calculate the impact of convalidations on a specific student
+     */
+    private function calculateStudentConvalidationImpact(Student $student, $convalidations, $originalSubjects, $totalOriginalSubjects)
+    {
+        $passedSubjects = $student->subjects->keyBy('code');
+        $currentSubjects = $student->currentSubjects->keyBy('subject_code');
+        
+        // Calculate original progress
+        $originalProgress = ($passedSubjects->count() / $totalOriginalSubjects) * 100;
+        
+        // Simulate convalidations
+        $convalidatedSubjects = [];
+        $additionalPassedCount = 0;
+        
+        foreach ($convalidations as $convalidation) {
+            if ($convalidation->convalidation_type === 'direct' && $convalidation->internalSubject) {
+                $internalSubjectCode = $convalidation->internalSubject->code;
+                
+                // If student hasn't passed this subject, they benefit from convalidation
+                if (!isset($passedSubjects[$internalSubjectCode])) {
+                    $convalidatedSubjects[] = $internalSubjectCode;
+                    $additionalPassedCount++;
+                }
+            }
+        }
+        
+        // Calculate new progress with convalidations
+        $newPassedCount = $passedSubjects->count() + $additionalPassedCount;
+        $newProgress = ($newPassedCount / $totalOriginalSubjects) * 100;
+        $progressChange = $newProgress - $originalProgress;
+        
+        return [
+            'has_impact' => $additionalPassedCount > 0,
+            'original_progress' => $originalProgress,
+            'new_progress' => $newProgress,
+            'progress_change' => $progressChange,
+            'convalidated_subjects_count' => $additionalPassedCount,
+            'convalidated_subjects' => $convalidatedSubjects
+        ];
+    }
+
+    /**
+     * Classify the impact type based on number of students benefited
+     */
+    private function classifyImpactType($studentsBenefited, $totalStudents)
+    {
+        $percentage = ($studentsBenefited / $totalStudents) * 100;
+        
+        if ($percentage >= 50) {
+            return 'high';
+        } elseif ($percentage >= 20) {
+            return 'medium';
+        } else {
+            return 'low';
+        }
+    }
 }

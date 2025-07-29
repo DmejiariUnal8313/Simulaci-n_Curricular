@@ -666,44 +666,95 @@ body {
     }
 }
 
-/* Career completion styles */
-.career-completion-card {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e7f3ff 100%);
-    border: 2px solid #007bff;
-    border-radius: 15px;
-    transition: all 0.3s ease;
+/* New subject card styles */
+.subject-card.added-subject {
+    border-color: #198754 !important;
+    border-width: 3px !important;
+    background: linear-gradient(135deg, #d1e7dd 0%, #a3d9a4 100%) !important;
 }
 
-.career-completion-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.15);
+.added-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #198754;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-.career-percentage {
-    font-size: 2.5rem !important;
+/* Export modal styles */
+.stat-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+}
+
+.stat-number {
+    font-size: 2rem;
     font-weight: bold;
-    background: linear-gradient(45deg, #007bff, #0056b3);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #0d6efd;
 }
 
-.convalidation-status {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(0,0,0,0.1);
+.stat-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 5px;
 }
 
-.convalidation-status .badge {
-    font-size: 0.7rem;
+/* Curriculum controls */
+.curriculum-controls {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid #dee2e6;
 }
 
-.subject-card.convalidated {
-    border-left: 4px solid #28a745;
-    background: linear-gradient(135deg, #f8fff9 0%, #e6ffed 100%);
+/* Modal improvements */
+.modal-xl {
+    max-width: 1200px;
 }
 
-.subject-card.pending {
-    border-left: 4px solid #ffc107;
-    background: linear-gradient(135deg, #fffdf0 0%, #fff7e6 100%);
+.prerequisite-item {
+    transition: all 0.2s ease;
+}
+
+.prerequisite-item:hover {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+/* Alert positioning */
+.alert.position-fixed {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Tab content improvements */
+.tab-content {
+    min-height: 300px;
+}
+
+/* List group improvements */
+.list-group-item {
+    border-left: 4px solid #0d6efd;
+    margin-bottom: 5px;
 }
