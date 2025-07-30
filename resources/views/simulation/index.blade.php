@@ -1,25 +1,12 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Simulación Curricular</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="{{ asset('css/simulation.css') }}" rel="stylesheet">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url('/') }}">
-                <i class="fas fa-graduation-cap"></i> Simulación Curricular
-            </a>
-        </div>
-    </nav>
+@extends('layouts.app')
 
-    <div class="container-fluid mt-4">
-        <h1 class="main-title">Malla Curricular - Administración de Sistemas Informáticos</h1>
+@push('styles')
+<link href="{{ asset('css/simulation.css') }}" rel="stylesheet">
+@endpush
+
+@section('content')
+<div class="container-fluid">
+    <h1 class="main-title">Malla Curricular - Administración de Sistemas Informáticos</h1>
         
         <!-- Statistics -->
         <div class="stats-container">
@@ -54,19 +41,13 @@
         <!-- Curriculum Controls -->
         <div class="curriculum-controls mb-3">
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <button class="btn btn-success" onclick="addNewSubject()">
                         <i class="fas fa-plus me-1"></i>
                         Agregar Materia
                     </button>
                 </div>
-                <div class="col-md-4 text-center">
-                    <button class="btn btn-warning" onclick="resetTemporaryChanges()">
-                        <i class="fas fa-undo me-1"></i>
-                        Reset Cambios
-                    </button>
-                </div>
-                <div class="col-md-4 text-end">
+                <div class="col-md-6 text-end">
                     <button class="btn btn-info" onclick="exportModifiedCurriculum()">
                         <i class="fas fa-download me-1"></i>
                         Exportar Malla Modificada
@@ -102,9 +83,9 @@
                 </div>
             @endfor
         </div>
-    </div>
+@endsection
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+@push('scripts')
     <script>
         // Immediate function definitions to prevent ReferenceError
         function addNewSubject() {
@@ -624,5 +605,4 @@
     </script>
     <script src="{{ asset('js/simulation.js') }}"></script>
     <script src="{{ asset('js/debug.js') }}"></script>
-</body>
-</html>
+@endpush
