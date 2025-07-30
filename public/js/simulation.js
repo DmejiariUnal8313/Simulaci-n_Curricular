@@ -960,12 +960,13 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => analyzeImpact(), 500);
     };
     
-    // Right-click context menu for editing prerequisites
-    subjectCards.forEach(card => {
-        card.addEventListener('contextmenu', function(e) {
+    // Right-click context menu for editing prerequisites using event delegation
+    document.addEventListener('contextmenu', function(e) {
+        const subjectCard = e.target.closest('.subject-card');
+        if (subjectCard) {
             e.preventDefault();
-            showPrerequisiteEditor(this);
-        });
+            showPrerequisiteEditor(subjectCard);
+        }
     });
     
     // Show prerequisite editor
