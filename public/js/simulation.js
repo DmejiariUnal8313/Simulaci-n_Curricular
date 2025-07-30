@@ -160,10 +160,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Enable drag and drop functionality using event delegation
     function enableDragAndDrop() {
-        // Set all existing cards as draggable
-        subjectCards.forEach(card => {
+        // Set ALL subject cards as draggable (original and new ones)
+        document.querySelectorAll('.subject-card').forEach(card => {
             card.draggable = true;
+            console.log('Made draggable:', card.dataset.subjectId);
         });
+        
+        console.log('Total cards made draggable:', document.querySelectorAll('.subject-card').length);
         
         // Use event delegation for drag events
         document.addEventListener('dragstart', function(e) {
@@ -223,8 +226,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     
                     if (newSemester !== oldSemester) {
+                        console.log('*** CALLING MODAL FUNCTION ***');
+                        console.log('Subject:', subjectId, 'From:', oldSemester, 'To:', newSemester);
+                        
                         // Show modal to optionally edit prerequisites
                         showMoveSubjectModal(draggedCard, this, newSemester, oldSemester);
+                    } else {
+                        console.log('Same semester, no modal needed');
                     }
                 }
             });
@@ -235,9 +243,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function moveSubjectToSemester(card, newColumn, newSemester) {
         const subjectList = newColumn.querySelector('.subject-list');
         subjectList.appendChild(card);
-        
-        // Update visual feedback
-        card.classList.add('moved');
         
         // Update semester display
         const semesterBadge = card.querySelector('.semester-badge');
@@ -766,6 +771,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Show modal when moving a subject to allow prerequisite editing
     function showMoveSubjectModal(card, newColumn, newSemester, oldSemester) {
+        console.log('*** MODAL FUNCTION CALLED ***');
+        console.log('Subject:', card.dataset.subjectId);
+        console.log('From semester:', oldSemester, 'To semester:', newSemester);
+        
         const subjectId = card.dataset.subjectId;
         const subjectName = card.querySelector('.subject-name').textContent;
         const currentPrereqs = card.dataset.prerequisites.split(',').filter(p => p.trim());
@@ -930,9 +939,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Record prerequisite change
                 recordSimulationChange(subjectId, 'prerequisites', newPrereqs.join(','), oldPrereqs.join(','));
                 
-                // Update visual feedback for prerequisite change
-                moveData.card.classList.add('moved');
-                
                 console.log('Prerequisites changed:', {
                     subject: subjectId,
                     old: oldPrereqs,
@@ -1054,9 +1060,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Record change
             recordSimulationChange(subjectId, 'prerequisites', newPrereqs.join(','), oldPrereqs.join(','));
-            
-            // Update visual feedback
-            card.classList.add('moved');
             
             // If card was selected, update highlights
             if (selectedCard === card) {

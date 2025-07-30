@@ -70,6 +70,7 @@
                         @if(isset($subjectsBySemester[$semester]))
                             @foreach($subjectsBySemester[$semester] as $subject)
                                 <div class="subject-card available" 
+                                     draggable="true"
                                      data-subject-id="{{ $subject->code }}"
                                      data-prerequisites="{{ $subject->prerequisites->pluck('code')->implode(',') }}"
                                      data-unlocks="{{ $subject->requiredFor->pluck('code')->implode(',') }}">
@@ -220,6 +221,8 @@
             // Make draggable
             card.draggable = true;
             
+            // COMMENTED OUT: This was interfering with the main drag and drop system
+            /*
             // Add drag event listeners
             card.addEventListener('dragstart', function(e) {
                 this.classList.add('dragging');
@@ -232,6 +235,7 @@
                 this.classList.remove('dragging');
                 window.draggedCard = null;
             });
+            */
             
             // Add click event for highlighting
             card.addEventListener('click', function() {
@@ -505,6 +509,8 @@
         
         // Initialize drag and drop functionality
         function initializeDragAndDrop() {
+            // COMMENTED OUT: This was interfering with the main simulation.js drag and drop system
+            /*
             const semesterColumns = document.querySelectorAll('.semester-column');
             
             semesterColumns.forEach(column => {
@@ -544,6 +550,7 @@
                     }
                 });
             });
+            */
             
             // Enable interactivity for existing cards
             document.querySelectorAll('.subject-card').forEach(card => {
