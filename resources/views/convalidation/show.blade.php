@@ -55,7 +55,7 @@
                                 </div>
                                 <div class="col">
                                     <h5 class="text-warning" id="not-convalidated-count">{{ $stats['not_convalidated'] ?? 0 }}</h5>
-                                    <small class="text-muted">Materias Adicionales</small>
+                                    <small class="text-muted">Materias Nuevas</small>
                                 </div>
                                 <div class="col">
                                     <h5 class="text-secondary" id="pending-count">{{ $stats['pending_subjects'] }}</h5>
@@ -186,7 +186,7 @@
                                                             @elseif($convalidationStatus['type'] === 'not_convalidated')
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fas fa-plus-circle text-warning me-2"></i>
-                                                                    <span class="fw-bold text-warning">Materia Adicional</span>
+                                                                    <span class="fw-bold text-warning">Materia Nueva</span>
                                                                 </div>
                                                             @endif
                                                         @else
@@ -211,7 +211,7 @@
                                                             @elseif($convalidationStatus['type'] === 'not_convalidated')
                                                                 <span class="badge bg-warning">
                                                                     <i class="fas fa-plus-circle me-1"></i>
-                                                                    Materia Adicional
+                                                                    Materia Nueva
                                                                 </span>
                                                             @endif
                                                         @else
@@ -299,8 +299,8 @@
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="convalidation_type" id="type_not_convalidated" value="not_convalidated">
                                 <label class="form-check-label" for="type_not_convalidated">
-                                    <strong>No Convalidada (Materia Adicional)</strong><br>
-                                    <small class="text-muted">Esta materia se agrega como requisito adicional a la nueva malla curricular</small>
+                                    <strong>Materia Nueva</strong><br>
+                                    <small class="text-muted">Esta es una materia nueva de la malla externa que el estudiante debe cursar</small>
                                 </label>
                             </div>
                         </div>
@@ -515,7 +515,7 @@ function updateConvalidationDisplay(subjectId, convalidation) {
         displayElement.innerHTML = `
             <div class="d-flex align-items-center">
                 <i class="fas fa-plus-circle text-warning me-2"></i>
-                <span class="fw-bold text-warning">Materia Adicional</span>
+                <span class="fw-bold text-warning">Materia Nueva</span>
             </div>
         `;
     }
@@ -531,7 +531,7 @@ function updateConvalidationDisplay(subjectId, convalidation) {
             statusElement.innerHTML = '<i class="fas fa-star me-1"></i>Libre Elección';
         } else if (convalidation.convalidation_type === 'not_convalidated') {
             statusElement.className = 'badge bg-warning';
-            statusElement.innerHTML = '<i class="fas fa-plus-circle me-1"></i>Materia Adicional';
+            statusElement.innerHTML = '<i class="fas fa-plus-circle me-1"></i>Materia Nueva';
         }
     }
 }
