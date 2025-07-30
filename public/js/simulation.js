@@ -1,7 +1,28 @@
 // Simulation View JavaScript
+// Make sure key functions are available immediately
+window.addNewSubject = function() {
+    console.log('addNewSubject called');
+    if (typeof showAddSubjectModal === 'function') {
+        showAddSubjectModal();
+    } else {
+        alert('Función no disponible aún, por favor espere a que la página cargue completamente');
+    }
+};
+
+window.exportModifiedCurriculum = function() {
+    console.log('exportModifiedCurriculum called');
+    if (typeof getCurrentCurriculumState === 'function' && typeof showExportModal === 'function') {
+        const modifiedCurriculum = getCurrentCurriculumState();
+        showExportModal(modifiedCurriculum);
+    } else {
+        alert('Función no disponible aún, por favor espere a que la página cargue completamente');
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     const subjectCards = document.querySelectorAll('.subject-card');
     let selectedCard = null;
+    let selectedSubjectId = null; // Track by ID instead of element reference
     let draggedCard = null;
     let simulationChanges = [];
     let originalCurriculum = {};
@@ -104,6 +125,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Reset transform to avoid visual issues
             card.style.transform = '';
         });
+        
+        // Also clear highlights from dynamically added cards
+        document.querySelectorAll('.subject-card').forEach(card => {
+            card.classList.remove('prerequisite', 'unlocks', 'selected');
+            card.style.transform = '';
+        });
     }
     
     // Function to highlight prerequisites and unlocks
@@ -138,24 +165,33 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`Unlocks: ${unlocks.join(', ')}`);
     }
     
-    // Enable drag and drop functionality
+    // Enable drag and drop functionality using event delegation
     function enableDragAndDrop() {
-        subjectCards.forEach(card => {
+        // Set ALL subject cards as draggable (original and new ones)
+        document.querySelectorAll('.subject-card').forEach(card => {
             card.draggable = true;
-            
-            card.addEventListener('dragstart', function(e) {
-                draggedCard = this;
-                this.classList.add('dragging');
+            console.log('Made draggable:', card.dataset.subjectId);
+        });
+        
+        console.log('Total cards made draggable:', document.querySelectorAll('.subject-card').length);
+        
+        // Use event delegation for drag events
+        document.addEventListener('dragstart', function(e) {
+            if (e.target.classList.contains('subject-card')) {
+                draggedCard = e.target;
+                e.target.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/html', this.outerHTML);
-                console.log('Drag started:', this.dataset.subjectId);
-            });
-            
-            card.addEventListener('dragend', function(e) {
-                this.classList.remove('dragging');
-                console.log('Drag ended:', this.dataset.subjectId);
+                e.dataTransfer.setData('text/html', e.target.outerHTML);
+                console.log('Drag started:', e.target.dataset.subjectId);
+            }
+        });
+        
+        document.addEventListener('dragend', function(e) {
+            if (e.target.classList.contains('subject-card')) {
+                e.target.classList.remove('dragging');
+                console.log('Drag ended:', e.target.dataset.subjectId);
                 draggedCard = null;
-            });
+            }
         });
         
         // Add drop zones to semester columns
@@ -197,8 +233,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     
                     if (newSemester !== oldSemester) {
+                        console.log('*** CALLING MODAL FUNCTION ***');
+                        console.log('Subject:', subjectId, 'From:', oldSemester, 'To:', newSemester);
+                        
                         // Show modal to optionally edit prerequisites
                         showMoveSubjectModal(draggedCard, this, newSemester, oldSemester);
+                    } else {
+                        console.log('Same semester, no modal needed');
                     }
                 }
             });
@@ -209,9 +250,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function moveSubjectToSemester(card, newColumn, newSemester) {
         const subjectList = newColumn.querySelector('.subject-list');
         subjectList.appendChild(card);
-        
-        // Update visual feedback
-        card.classList.add('moved');
         
         // Update semester display
         const semesterBadge = card.querySelector('.semester-badge');
@@ -277,22 +315,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const controlsHtml = `
             <div class="simulation-controls mb-3">
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-8">
                         <div id="simulation-status"></div>
                     </div>
-                    <div class="col-md-6 text-end">
-                        <button class="btn btn-primary me-2" onclick="analyzeImpact()">
-                            <i class="fas fa-chart-line me-1"></i>
-                            Analizar impacto
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-info me-2" onclick="openConvalidation()">
+                            <i class="fas fa-exchange-alt me-1"></i>
+                            Realizar Convalidación
                         </button>
-                        <button class="btn btn-warning me-2" onclick="resetSimulation()">
-                            <i class="fas fa-undo me-1"></i>
-                            Resetear
-                        </button>
-                        <button class="btn btn-success" onclick="saveSimulation()">
-                            <i class="fas fa-save me-1"></i>
-                            Guardar simulación
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-primary" onclick="analyzeImpact()">
+                                <i class="fas fa-chart-line me-1"></i>
+                                Analizar
+                            </button>
+                            <button class="btn btn-warning" onclick="resetSimulation()">
+                                <i class="fas fa-undo me-1"></i>
+                                Reset
+                            </button>
+                            <button class="btn btn-success" onclick="saveSimulation()">
+                                <i class="fas fa-save me-1"></i>
+                                Guardar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -571,29 +615,48 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     }
     
-    // Add click event listeners to subject cards
-    subjectCards.forEach(card => {
-        card.addEventListener('click', function() {
-            const subjectId = this.dataset.subjectId;
+    // Add click event listeners to subject cards using event delegation
+    document.addEventListener('click', function(e) {
+        console.log('🔍 CLICK EVENT TRIGGERED');
+        console.log('Target:', e.target);
+        console.log('Target tagName:', e.target.tagName);
+        console.log('Target classes:', e.target.className);
+        
+        const subjectCard = e.target.closest('.subject-card');
+        console.log('Found subject card:', subjectCard?.dataset?.subjectId || 'none');
+        
+        if (subjectCard) {
+            // Stop ANY other event handlers from running
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            e.stopPropagation();
             
-            // If clicking the same card, toggle off
-            if (selectedCard === this) {
+            const subjectId = subjectCard.dataset.subjectId;
+            console.log(`🎯 PROCESSING CLICK on: ${subjectId}`);
+            console.log(`📍 Currently selected: ${selectedSubjectId || 'none'}`);
+            
+            // If clicking the same card (by ID), toggle off
+            if (selectedSubjectId === subjectId) {
+                console.log('🔄 DESELECTING - Same subject clicked');
                 clearHighlights();
                 selectedCard = null;
+                selectedSubjectId = null;
                 return;
             }
             
             // Highlight related subjects
-            highlightRelated(this);
-            selectedCard = this;
-        });
-    });
-    
-    // Clear highlights when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.subject-card')) {
-            clearHighlights();
-            selectedCard = null;
+            console.log('🎨 HIGHLIGHTING - New subject selected');
+            highlightRelated(subjectCard);
+            selectedCard = subjectCard;
+            selectedSubjectId = subjectId;
+        } else {
+            // Click outside - clear highlights
+            if (selectedSubjectId) {
+                console.log('🚫 CLICK OUTSIDE - Clearing selection');
+                clearHighlights();
+                selectedCard = null;
+                selectedSubjectId = null;
+            }
         }
     });
     
@@ -727,6 +790,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Show modal when moving a subject to allow prerequisite editing
     function showMoveSubjectModal(card, newColumn, newSemester, oldSemester) {
+        console.log('*** MODAL FUNCTION CALLED ***');
+        console.log('Subject:', card.dataset.subjectId);
+        console.log('From semester:', oldSemester, 'To semester:', newSemester);
+        
         const subjectId = card.dataset.subjectId;
         const subjectName = card.querySelector('.subject-name').textContent;
         const currentPrereqs = card.dataset.prerequisites.split(',').filter(p => p.trim());
@@ -891,8 +958,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Record prerequisite change
                 recordSimulationChange(subjectId, 'prerequisites', newPrereqs.join(','), oldPrereqs.join(','));
                 
-                // Update visual feedback for prerequisite change
-                moveData.card.classList.add('moved');
+                // Update unlocks relationships for all subjects
+                updateUnlocksRelationships();
                 
                 console.log('Prerequisites changed:', {
                     subject: subjectId,
@@ -915,12 +982,13 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => analyzeImpact(), 500);
     };
     
-    // Right-click context menu for editing prerequisites
-    subjectCards.forEach(card => {
-        card.addEventListener('contextmenu', function(e) {
+    // Right-click context menu for editing prerequisites using event delegation
+    document.addEventListener('contextmenu', function(e) {
+        const subjectCard = e.target.closest('.subject-card');
+        if (subjectCard) {
             e.preventDefault();
-            showPrerequisiteEditor(this);
-        });
+            showPrerequisiteEditor(subjectCard);
+        }
     });
     
     // Show prerequisite editor
@@ -1016,8 +1084,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Record change
             recordSimulationChange(subjectId, 'prerequisites', newPrereqs.join(','), oldPrereqs.join(','));
             
-            // Update visual feedback
-            card.classList.add('moved');
+            // Update unlocks relationships for all subjects
+            updateUnlocksRelationships();
             
             // If card was selected, update highlights
             if (selectedCard === card) {
@@ -1032,6 +1100,665 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
+    // Open convalidation system
+    window.openConvalidation = function() {
+        window.location.href = '/convalidation';
+    };
+
+    // Add new subject functionality - Update the global function
+    window.addNewSubject = function() {
+        console.log('addNewSubject called - updated version');
+        showAddSubjectModal();
+    };
+
+    // Export modified curriculum - Update the global function
+    window.exportModifiedCurriculum = function() {
+        console.log('exportModifiedCurriculum called - updated version');
+        const modifiedCurriculum = getCurrentCurriculumState();
+        showExportModal(modifiedCurriculum);
+    };
+
+    // Show modal to add new subject
+    function showAddSubjectModal() {
+        const modalHtml = `
+            <div class="modal fade" id="addSubjectModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-plus me-2"></i>
+                                Agregar Nueva Materia
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="addSubjectForm">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="subjectCode" class="form-label">Código de la Materia *</label>
+                                            <input type="text" class="form-control" id="subjectCode" required 
+                                                   placeholder="Ej: MAT101" maxlength="10">
+                                            <div class="form-text">Debe ser único</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="subjectSemester" class="form-label">Semestre *</label>
+                                            <select class="form-select" id="subjectSemester" required>
+                                                <option value="">Seleccionar semestre</option>
+                                                <option value="1">1° Semestre</option>
+                                                <option value="2">2° Semestre</option>
+                                                <option value="3">3° Semestre</option>
+                                                <option value="4">4° Semestre</option>
+                                                <option value="5">5° Semestre</option>
+                                                <option value="6">6° Semestre</option>
+                                                <option value="7">7° Semestre</option>
+                                                <option value="8">8° Semestre</option>
+                                                <option value="9">9° Semestre</option>
+                                                <option value="10">10° Semestre</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="subjectName" class="form-label">Nombre de la Materia *</label>
+                                    <input type="text" class="form-control" id="subjectName" required 
+                                           placeholder="Ej: Matemáticas Discretas" maxlength="100">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="subjectPrerequisites" class="form-label">Prerrequisitos (opcional)</label>
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <input type="text" class="form-control" id="subjectPrerequisites" 
+                                                   placeholder="Ej: MAT100, FIS101, QUI200">
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Digite los códigos de las materias separados por comas. 
+                                                Se validará que las materias existan en la malla.
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-secondary w-100" onclick="showPrerequisiteHelper()">
+                                                <i class="fas fa-search me-1"></i>
+                                                Buscar Materias
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="subjectDescription" class="form-label">Descripción (opcional)</label>
+                                    <textarea class="form-control" id="subjectDescription" rows="3" 
+                                              placeholder="Descripción breve de la materia"></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-success" onclick="createNewSubject()">
+                                <i class="fas fa-plus me-1"></i>
+                                Agregar Materia
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('addSubjectModal'));
+        
+        // Clean up when modal is hidden
+        document.getElementById('addSubjectModal').addEventListener('hidden.bs.modal', function() {
+            cleanupModal(this);
+        });
+        
+        modal.show();
+    }
+
+    // Show prerequisite helper modal
+    function showPrerequisiteHelper() {
+        const existingSubjects = Array.from(document.querySelectorAll('.subject-card')).map(card => ({
+            code: card.dataset.subjectId,
+            name: card.querySelector('.subject-name').textContent,
+            semester: card.closest('.semester-column').dataset.semester
+        }));
+
+        const helperHtml = `
+            <div class="modal fade" id="prerequisiteHelperModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Seleccionar Prerrequisitos</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <input type="text" class="form-control" id="prerequisiteSearch" 
+                                       placeholder="Buscar materias..." onkeyup="filterPrerequisites()">
+                            </div>
+                            <div class="row" id="prerequisiteList">
+                                ${existingSubjects.map(subject => `
+                                    <div class="col-md-6 mb-2 prerequisite-item">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   value="${subject.code}" id="prereq_${subject.code}">
+                                            <label class="form-check-label" for="prereq_${subject.code}">
+                                                <strong>${subject.code}</strong> - ${subject.name}
+                                                <small class="text-muted">(Sem. ${subject.semester})</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" onclick="applySelectedPrerequisites()">
+                                Aplicar Selección
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', helperHtml);
+        const modal = new bootstrap.Modal(document.getElementById('prerequisiteHelperModal'));
+        
+        document.getElementById('prerequisiteHelperModal').addEventListener('hidden.bs.modal', function() {
+            cleanupModal(this);
+        });
+        
+        modal.show();
+    }
+
+    // Filter prerequisites in helper modal
+    window.filterPrerequisites = function() {
+        const searchTerm = document.getElementById('prerequisiteSearch').value.toLowerCase();
+        const items = document.querySelectorAll('.prerequisite-item');
+        
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(searchTerm) ? 'block' : 'none';
+        });
+    };
+
+    // Apply selected prerequisites from helper modal
+    window.applySelectedPrerequisites = function() {
+        const selected = Array.from(document.querySelectorAll('#prerequisiteList input:checked'))
+                              .map(input => input.value);
+        
+        document.getElementById('subjectPrerequisites').value = selected.join(', ');
+        bootstrap.Modal.getInstance(document.getElementById('prerequisiteHelperModal')).hide();
+    };
+
+    // Create new subject
+    window.createNewSubject = function() {
+        const code = document.getElementById('subjectCode').value.trim().toUpperCase();
+        const name = document.getElementById('subjectName').value.trim();
+        const semester = document.getElementById('subjectSemester').value;
+        const prerequisites = document.getElementById('subjectPrerequisites').value.trim();
+        const description = document.getElementById('subjectDescription').value.trim();
+
+        // Validation
+        if (!code || !name || !semester) {
+            alert('Por favor complete todos los campos obligatorios');
+            return;
+        }
+
+        // Check if code already exists
+        if (document.querySelector(`[data-subject-id="${code}"]`)) {
+            alert('Ya existe una materia con ese código');
+            return;
+        }
+
+        // Process prerequisites - convert comma-separated codes to array
+        const prerequisiteArray = prerequisites 
+            ? prerequisites.split(',').map(p => p.trim().toUpperCase()).filter(p => p) 
+            : [];
+
+        // Validate that prerequisite codes exist (optional validation)
+        const invalidPrereqs = prerequisiteArray.filter(prereqCode => {
+            return !document.querySelector(`[data-subject-id="${prereqCode}"]`);
+        });
+
+        if (invalidPrereqs.length > 0) {
+            const proceed = confirm(
+                `Los siguientes prerrequisitos no existen en la malla actual: ${invalidPrereqs.join(', ')}\n\n` +
+                `¿Desea continuar agregando la materia de todas formas?`
+            );
+            if (!proceed) return;
+        }
+
+        // Create the new subject card
+        const newSubjectCard = createSubjectCard(code, name, semester, prerequisiteArray.join(','), description);
+        
+        // Add to the appropriate semester column
+        const semesterColumn = document.querySelector(`[data-semester="${semester}"] .subject-list`);
+        if (!semesterColumn) {
+            alert(`Error: No se encontró el semestre ${semester}`);
+            return;
+        }
+        
+        semesterColumn.appendChild(newSubjectCard);
+
+        // Update drag and drop functionality
+        enableDragAndDropForCard(newSubjectCard);
+
+        // Update unlocks relationships for existing subjects
+        updateUnlocksRelationships();
+
+        // Record as simulation change
+        recordSimulationChange(code, 'added', {
+            name: name,
+            semester: semester,
+            prerequisites: prerequisiteArray,
+            description: description
+        }, null);
+
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('addSubjectModal')).hide();
+
+        // Show success message
+        showSuccessMessage(`Materia "${name}" (${code}) agregada exitosamente al semestre ${semester}`);
+        
+        console.log(`New subject added: ${code} - ${name}, Prerequisites: [${prerequisiteArray.join(', ')}]`);
+    };
+
+    // Create subject card HTML
+    function createSubjectCard(code, name, semester, prerequisites, description) {
+        const card = document.createElement('div');
+        card.className = 'subject-card available added-subject';
+        card.dataset.subjectId = code;
+        card.dataset.prerequisites = prerequisites;
+        card.dataset.unlocks = '';
+        card.title = description || name;
+
+        card.innerHTML = `
+            <div class="subject-name">${name}</div>
+            <div class="subject-code">${code}</div>
+            <div class="added-badge">
+                <i class="fas fa-plus"></i>
+            </div>
+        `;
+
+        return card;
+    }
+
+    // Enable drag and drop for a single card
+    function enableDragAndDropForCard(card) {
+        card.draggable = true;
+        // Drag functionality is handled by event delegation in enableDragAndDrop()
+    }
+
+    // Update unlocks relationships when new subjects are added
+    function updateUnlocksRelationships() {
+        console.log('🔄 Updating unlocks relationships...');
+        
+        // Clear all existing unlocks
+        document.querySelectorAll('.subject-card').forEach(card => {
+            card.dataset.unlocks = '';
+        });
+
+        // Rebuild unlocks relationships
+        document.querySelectorAll('.subject-card').forEach(card => {
+            const subjectCode = card.dataset.subjectId;
+            const prerequisites = card.dataset.prerequisites.split(',').filter(p => p.trim());
+            
+            if (prerequisites.length > 0) {
+                console.log(`📋 Subject ${subjectCode} has prerequisites: [${prerequisites.join(', ')}]`);
+            }
+            
+            // For each prerequisite, add this subject to their unlocks
+            prerequisites.forEach(prereqCode => {
+                const prereqCard = document.querySelector(`[data-subject-id="${prereqCode}"]`);
+                if (prereqCard) {
+                    const currentUnlocks = prereqCard.dataset.unlocks.split(',').filter(u => u.trim());
+                    if (!currentUnlocks.includes(subjectCode)) {
+                        currentUnlocks.push(subjectCode);
+                        prereqCard.dataset.unlocks = currentUnlocks.join(',');
+                        console.log(`🔗 Added ${subjectCode} to unlocks of ${prereqCode}. Now unlocks: [${currentUnlocks.join(', ')}]`);
+                    }
+                } else {
+                    console.warn(`⚠️ Prerequisite ${prereqCode} not found for subject ${subjectCode}`);
+                }
+            });
+        });
+        
+        console.log('✅ Unlocks relationships updated');
+    }
+
+    // Get current curriculum state for export
+    function getCurrentCurriculumState() {
+        const curriculum = {};
+        
+        for (let semester = 1; semester <= 10; semester++) {
+            const semesterColumn = document.querySelector(`[data-semester="${semester}"]`);
+            if (!semesterColumn) continue;
+            
+            const subjects = Array.from(semesterColumn.querySelectorAll('.subject-card')).map(card => {
+                // Try to extract credits from existing data or default to null
+                const creditsElement = card.querySelector('.subject-credits');
+                const credits = creditsElement ? parseInt(creditsElement.textContent) : null;
+                
+                return {
+                    code: card.dataset.subjectId,
+                    name: card.querySelector('.subject-name').textContent.trim(),
+                    prerequisites: card.dataset.prerequisites.split(',').filter(p => p.trim()),
+                    semester: semester,
+                    credits: credits,
+                    isAdded: card.classList.contains('added-subject'),
+                    description: card.title || card.querySelector('.subject-name').textContent.trim()
+                };
+            });
+            
+            if (subjects.length > 0) {
+                curriculum[semester] = subjects;
+            }
+        }
+        
+        return curriculum;
+    }
+
+    // Show export modal
+    function showExportModal(curriculum) {
+        const totalSubjects = Object.values(curriculum).reduce((total, subjects) => total + subjects.length, 0);
+        const addedSubjects = Object.values(curriculum).reduce((total, subjects) => 
+            total + subjects.filter(s => s.isAdded).length, 0);
+
+        const modalHtml = `
+            <div class="modal fade" id="exportModal" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-download me-2"></i>
+                                Exportar Malla Curricular Modificada
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <div class="stat-card text-center">
+                                        <div class="stat-number">${totalSubjects}</div>
+                                        <div class="stat-label">Total Materias</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-card text-center">
+                                        <div class="stat-number">${addedSubjects}</div>
+                                        <div class="stat-label">Materias Agregadas</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-card text-center">
+                                        <div class="stat-number">${simulationChanges.length}</div>
+                                        <div class="stat-label">Cambios Realizados</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="exportName" class="form-label">Nombre de la Exportación</label>
+                                <input type="text" class="form-control" id="exportName" 
+                                       value="Malla_Modificada_${new Date().toISOString().split('T')[0]}"
+                                       placeholder="Nombre del archivo/configuración">
+                            </div>
+
+                            <ul class="nav nav-tabs" id="exportTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="preview-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#preview" type="button" role="tab">
+                                        <i class="fas fa-eye me-1"></i>
+                                        Vista Previa
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="json-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#json" type="button" role="tab">
+                                        <i class="fas fa-code me-1"></i>
+                                        JSON
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="changes-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#changes" type="button" role="tab">
+                                        <i class="fas fa-list me-1"></i>
+                                        Cambios
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content mt-3" id="exportTabContent">
+                                <div class="tab-pane fade show active" id="preview" role="tabpanel">
+                                    ${generateCurriculumPreview(curriculum)}
+                                </div>
+                                <div class="tab-pane fade" id="json" role="tabpanel">
+                                    <pre class="bg-light p-3" style="max-height: 400px; overflow-y: auto;"><code>${JSON.stringify(curriculum, null, 2)}</code></pre>
+                                </div>
+                                <div class="tab-pane fade" id="changes" role="tabpanel">
+                                    ${generateChangesPreview()}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            <button type="button" class="btn btn-primary" onclick="downloadAsJSON()">
+                                <i class="fas fa-download me-1"></i>
+                                Descargar JSON
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="saveToConvalidation()">
+                                <i class="fas fa-save me-1"></i>
+                                Guardar para Convalidación
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+        
+        document.getElementById('exportModal').addEventListener('hidden.bs.modal', function() {
+            cleanupModal(this);
+        });
+        
+        modal.show();
+    }
+
+    // Generate curriculum preview HTML
+    function generateCurriculumPreview(curriculum) {
+        let html = '<div class="row">';
+        
+        for (let semester = 1; semester <= 10; semester++) {
+            const subjects = curriculum[semester] || [];
+            html += `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">${semester}° Semestre (${subjects.length} materias)</h6>
+                        </div>
+                        <div class="card-body">
+                            ${subjects.map(subject => `
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div>
+                                        <strong>${subject.code}</strong><br>
+                                        <small>${subject.name}</small>
+                                        ${subject.isAdded ? '<span class="badge bg-success ms-1">Nueva</span>' : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                            ${subjects.length === 0 ? '<em class="text-muted">Sin materias</em>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        return html;
+    }
+
+    // Generate changes preview HTML
+    function generateChangesPreview() {
+        if (simulationChanges.length === 0) {
+            return '<div class="alert alert-info">No se han realizado cambios en la malla curricular.</div>';
+        }
+
+        let html = '<div class="list-group">';
+        
+        simulationChanges.forEach((change, index) => {
+            const typeLabel = {
+                'semester': 'Cambio de Semestre',
+                'prerequisites': 'Cambio de Prerrequisitos',
+                'added': 'Materia Agregada'
+            };
+
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${typeLabel[change.type] || change.type}</h6>
+                        <small class="text-muted">#${index + 1}</small>
+                    </div>
+                    <p class="mb-1">
+                        <strong>Materia:</strong> ${change.subject_code}
+                        ${change.type === 'added' ? '' : `<br><strong>Anterior:</strong> ${change.old_value || 'N/A'}`}
+                        <br><strong>Nuevo:</strong> ${typeof change.new_value === 'object' ? JSON.stringify(change.new_value) : change.new_value}
+                    </p>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        return html;
+    }
+
+    // Download curriculum as JSON
+    window.downloadAsJSON = function() {
+        const curriculum = getCurrentCurriculumState();
+        const exportName = document.getElementById('exportName').value || 'malla_curricular';
+        
+        const dataStr = JSON.stringify({
+            exportName: exportName,
+            exportDate: new Date().toISOString(),
+            curriculum: curriculum,
+            changes: simulationChanges,
+            metadata: {
+                totalSubjects: Object.values(curriculum).reduce((total, subjects) => total + subjects.length, 0),
+                totalChanges: simulationChanges.length,
+                addedSubjects: Object.values(curriculum).reduce((total, subjects) => 
+                    total + subjects.filter(s => s.isAdded).length, 0)
+            }
+        }, null, 2);
+        
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${exportName}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showSuccessMessage('Archivo JSON descargado exitosamente');
+    };
+
+    // Save to convalidation system
+    window.saveToConvalidation = function() {
+        const exportName = document.getElementById('exportName')?.value.trim() || 
+                          `Malla_Modificada_${new Date().toISOString().split('T')[0]}`;
+        
+        const curriculum = getCurrentCurriculumState();
+        
+        // Show loading state
+        const saveButton = document.querySelector('button[onclick="saveToConvalidation()"]');
+        const originalText = saveButton.innerHTML;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+        saveButton.disabled = true;
+
+        // Prepare data for backend
+        const payload = {
+            name: exportName,
+            institution: 'Simulación Curricular',
+            curriculum: curriculum,
+            changes: simulationChanges,
+            _token: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        };
+
+        // Send to backend
+        fetch('/convalidation/save-modified-curriculum', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': payload._token,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close the export modal
+                const exportModal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+                if (exportModal) {
+                    exportModal.hide();
+                }
+
+                // Show success message
+                showSuccessMessage(`Malla curricular "${exportName}" guardada exitosamente para convalidación`);
+
+                // Redirect to convalidation section after a short delay
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 2000);
+            } else {
+                throw new Error(data.message || 'Error desconocido');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving to convalidation:', error);
+            alert(`Error al guardar la malla curricular: ${error.message}`);
+        })
+        .finally(() => {
+            // Restore button state
+            saveButton.innerHTML = originalText;
+            saveButton.disabled = false;
+        });
+    };
+
+    // Show success message
+    function showSuccessMessage(message) {
+        const alertHtml = `
+            <div class="alert alert-success alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', alertHtml);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            const alert = document.querySelector('.alert-success');
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+
+    // Debug: Verify functions are available
+    console.log('=== SIMULATION JS LOADED ===');
+    console.log('addNewSubject available:', typeof window.addNewSubject);
+    console.log('exportModifiedCurriculum available:', typeof window.exportModifiedCurriculum);
+    console.log('=== END DEBUG ===');
+
     // Initialize simulation when page loads
     initializeSimulation();
 });

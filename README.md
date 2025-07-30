@@ -175,6 +175,17 @@ The `docker/init_db.sh` script provides additional database setup:
    ./docker.sh artisan migrate
    ```
 
+4. **Install Excel package for convalidations** (if not auto-installed):
+   ```bash
+   ./docker.sh composer require maatwebsite/excel
+   ```
+
+5. **Access the convalidation system**:
+   ```bash
+   # Navigate to http://localhost:8080/convalidation
+   # Or click "Realizar Convalidación" in the main simulation view
+   ```
+
 4. **Run tests**:
    ```bash
    ./docker.sh artisan test
@@ -186,6 +197,94 @@ The `docker/init_db.sh` script provides additional database setup:
    ./docker.sh logs web
    ./docker.sh logs db
    ```
+
+## Sistema de Convalidaciones
+
+El proyecto incluye un sistema completo de convalidaciones curriculares que permite:
+
+### Características
+- **Carga de mallas externas**: Importación desde CSV (.csv)
+- **Convalidación manual**: Equivalencias directas y libre elección
+- **Sugerencias automáticas**: Basadas en similitud de nombres
+- **Dashboard estadístico**: Progreso y métricas en tiempo real
+- **Reportes exportables**: Documentación completa del proceso
+
+### Configuración Inicial
+```bash
+# Ejecutar migraciones específicas de convalidaciones
+./docker.sh artisan migrate
+
+# Verificar que las tablas se crearon correctamente
+./docker.sh artisan tinker
+# En tinker: \App\Models\ExternalCurriculum::count()
+```
+
+### Uso del Sistema
+1. **Acceder**: http://localhost:8080/convalidation
+2. **Cargar malla**: Botón "Realizar Convalidación"
+3. **Formato CSV**: Ver detalles del formato más abajo
+4. **Convalidar**: Configurar cada materia como directa o libre elección
+5. **Seguimiento**: Ver progreso en tiempo real sin recargas de página
+6. **Exportar**: Generar reporte final de convalidaciones
+
+### Características Avanzadas
+- **Progreso de Carrera**: Cálculo automático del porcentaje de carrera completada basado en créditos
+- **Navegación Inteligente**: Mantiene la posición en el semestre actual durante convalidaciones
+- **Estadísticas en Tiempo Real**: Actualización automática sin recargar la página
+- **Plantilla CSV**: Descarga automática de formato de ejemplo
+
+### Formato de Archivo CSV para Mallas Externas
+
+**Campos Obligatorios:**
+- `codigo` - Código único de la materia (ej: "INF101")
+- `nombre` - Nombre completo de la materia (ej: "Programación I")
+
+**Campos Opcionales:**
+- `creditos` - Número de créditos (ej: 3, 4, 5)
+- `semestre` - Semestre de la materia (ej: 1, 2, 3)
+- `descripcion` - Descripción de la materia
+
+**Ejemplo de CSV:**
+```csv
+codigo,nombre,creditos,semestre,descripcion
+INF101,Introducción a la Informática,3,1,Conceptos básicos
+MAT101,Matemáticas I,4,1,Álgebra y cálculo básico
+PRG101,Programación I,4,2,Fundamentos de programación
+```
+
+**Requisitos técnicos:**
+- Formato: CSV (separado por comas)
+- Tamaño máximo: 10MB
+- Codificación: UTF-8 recomendada
+- Primera fila debe contener los nombres de columnas
+
+### Porcentaje de Equivalencia
+El sistema permite asignar un **porcentaje de equivalencia** (0-100%) a cada convalidación:
+
+- **100%**: Equivalencia total (contenido idéntico)
+- **80-99%**: Equivalencia alta (contenido muy similar)
+- **60-79%**: Equivalencia parcial (contenido parcialmente cubierto)
+- **30-59%**: Equivalencia mínima (elementos básicos cubiertos)
+
+**Ejemplos:**
+```
+- "Programación I" externa → "Programación I" interna: 100%
+- "Fundamentos de Programación" → "Programación I": 85%
+- "Introducción a Algoritmos" → "Programación I": 60%
+```
+
+El porcentaje afecta el cálculo de créditos convalidados para el progreso de carrera.
+
+### Troubleshooting Convalidaciones
+```bash
+# Si hay errores de tablas faltantes
+./docker.sh artisan migrate:status
+./docker.sh artisan migrate
+
+# Para reset completo del sistema de convalidaciones
+./docker.sh artisan migrate:rollback --path=database/migrations/2025_07_26_000001_create_external_curriculums_table.php
+./docker.sh artisan migrate
+```
 
 ## Troubleshooting
 
