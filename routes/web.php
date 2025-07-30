@@ -35,4 +35,7 @@ Route::group(['prefix' => 'convalidation'], function () {
     Route::post('/convalidation', [ConvalidationController::class, 'storeConvalidation'])->name('convalidation.store-convalidation');
     Route::delete('/convalidation/{convalidation}', [ConvalidationController::class, 'destroyConvalidation'])->name('convalidation.destroy-convalidation');
     Route::get('/suggestions', [ConvalidationController::class, 'getSuggestions'])->name('convalidation.suggestions');
+    
+    // Save modified curriculum from simulation
+    Route::post('/save-modified-curriculum', [ConvalidationController::class, 'saveModifiedCurriculum'])->name('convalidation.save-modified-curriculum');
 });

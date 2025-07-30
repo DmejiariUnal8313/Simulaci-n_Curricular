@@ -1,4 +1,24 @@
 // Simulation View JavaScript
+// Make sure key functions are available immediately
+window.addNewSubject = function() {
+    console.log('addNewSubject called');
+    if (typeof showAddSubjectModal === 'function') {
+        showAddSubjectModal();
+    } else {
+        alert('Función no disponible aún, por favor espere a que la página cargue completamente');
+    }
+};
+
+window.exportModifiedCurriculum = function() {
+    console.log('exportModifiedCurriculum called');
+    if (typeof getCurrentCurriculumState === 'function' && typeof showExportModal === 'function') {
+        const modifiedCurriculum = getCurrentCurriculumState();
+        showExportModal(modifiedCurriculum);
+    } else {
+        alert('Función no disponible aún, por favor espere a que la página cargue completamente');
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     const subjectCards = document.querySelectorAll('.subject-card');
     let selectedCard = null;
@@ -138,24 +158,30 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`Unlocks: ${unlocks.join(', ')}`);
     }
     
-    // Enable drag and drop functionality
+    // Enable drag and drop functionality using event delegation
     function enableDragAndDrop() {
+        // Set all existing cards as draggable
         subjectCards.forEach(card => {
             card.draggable = true;
-            
-            card.addEventListener('dragstart', function(e) {
-                draggedCard = this;
-                this.classList.add('dragging');
+        });
+        
+        // Use event delegation for drag events
+        document.addEventListener('dragstart', function(e) {
+            if (e.target.classList.contains('subject-card')) {
+                draggedCard = e.target;
+                e.target.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/html', this.outerHTML);
-                console.log('Drag started:', this.dataset.subjectId);
-            });
-            
-            card.addEventListener('dragend', function(e) {
-                this.classList.remove('dragging');
-                console.log('Drag ended:', this.dataset.subjectId);
+                e.dataTransfer.setData('text/html', e.target.outerHTML);
+                console.log('Drag started:', e.target.dataset.subjectId);
+            }
+        });
+        
+        document.addEventListener('dragend', function(e) {
+            if (e.target.classList.contains('subject-card')) {
+                e.target.classList.remove('dragging');
+                console.log('Drag ended:', e.target.dataset.subjectId);
                 draggedCard = null;
-            });
+            }
         });
         
         // Add drop zones to semester columns
@@ -577,29 +603,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     }
     
-    // Add click event listeners to subject cards
-    subjectCards.forEach(card => {
-        card.addEventListener('click', function() {
-            const subjectId = this.dataset.subjectId;
+    // Add click event listeners to subject cards using event delegation
+    document.addEventListener('click', function(e) {
+        const subjectCard = e.target.closest('.subject-card');
+        
+        if (subjectCard) {
+            // This is a click on a subject card
+            e.stopPropagation(); // Prevent event bubbling
+            const subjectId = subjectCard.dataset.subjectId;
+            
+            console.log(`Clicked on subject: ${subjectId}, currently selected: ${selectedCard?.dataset?.subjectId || 'none'}`);
             
             // If clicking the same card, toggle off
-            if (selectedCard === this) {
+            if (selectedCard === subjectCard) {
+                console.log('Deselecting current card');
                 clearHighlights();
                 selectedCard = null;
                 return;
             }
             
             // Highlight related subjects
-            highlightRelated(this);
-            selectedCard = this;
-        });
-    });
-    
-    // Clear highlights when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.subject-card')) {
-            clearHighlights();
-            selectedCard = null;
+            console.log('Selecting new card and highlighting related subjects');
+            highlightRelated(subjectCard);
+            selectedCard = subjectCard;
+        } else {
+            // Click outside - clear highlights
+            if (selectedCard) {
+                console.log('Clicked outside, clearing highlights');
+                clearHighlights();
+                selectedCard = null;
+            }
         }
     });
     
@@ -1043,13 +1076,15 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = '/convalidation';
     };
 
-    // Add new subject functionality
+    // Add new subject functionality - Update the global function
     window.addNewSubject = function() {
+        console.log('addNewSubject called - updated version');
         showAddSubjectModal();
     };
 
-    // Export modified curriculum
+    // Export modified curriculum - Update the global function
     window.exportModifiedCurriculum = function() {
+        console.log('exportModifiedCurriculum called - updated version');
         const modifiedCurriculum = getCurrentCurriculumState();
         showExportModal(modifiedCurriculum);
     };
@@ -1107,11 +1142,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <div class="row">
                                         <div class="col-md-8">
                                             <input type="text" class="form-control" id="subjectPrerequisites" 
-                                                   placeholder="Separar códigos con comas: MAT100, FIS101">
-                                            <div class="form-text">Códigos de materias que deben estar aprobadas</div>
+                                                   placeholder="Ej: MAT100, FIS101, QUI200">
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Digite los códigos de las materias separados por comas. 
+                                                Se validará que las materias existan en la malla.
+                                            </div>
                                         </div>
                                         <div class="col-md-4">
-                                            <button type="button" class="btn btn-outline-secondary" onclick="showPrerequisiteHelper()">
+                                            <button type="button" class="btn btn-outline-secondary w-100" onclick="showPrerequisiteHelper()">
                                                 <i class="fas fa-search me-1"></i>
                                                 Buscar Materias
                                             </button>
@@ -1216,7 +1255,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // Apply selected prerequisites
+    // Apply selected prerequisites from helper modal
     window.applySelectedPrerequisites = function() {
         const selected = Array.from(document.querySelectorAll('#prerequisiteList input:checked'))
                               .map(input => input.value);
@@ -1245,21 +1284,47 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Process prerequisites - convert comma-separated codes to array
+        const prerequisiteArray = prerequisites 
+            ? prerequisites.split(',').map(p => p.trim().toUpperCase()).filter(p => p) 
+            : [];
+
+        // Validate that prerequisite codes exist (optional validation)
+        const invalidPrereqs = prerequisiteArray.filter(prereqCode => {
+            return !document.querySelector(`[data-subject-id="${prereqCode}"]`);
+        });
+
+        if (invalidPrereqs.length > 0) {
+            const proceed = confirm(
+                `Los siguientes prerrequisitos no existen en la malla actual: ${invalidPrereqs.join(', ')}\n\n` +
+                `¿Desea continuar agregando la materia de todas formas?`
+            );
+            if (!proceed) return;
+        }
+
         // Create the new subject card
-        const newSubjectCard = createSubjectCard(code, name, semester, prerequisites, description);
+        const newSubjectCard = createSubjectCard(code, name, semester, prerequisiteArray.join(','), description);
         
         // Add to the appropriate semester column
         const semesterColumn = document.querySelector(`[data-semester="${semester}"] .subject-list`);
+        if (!semesterColumn) {
+            alert(`Error: No se encontró el semestre ${semester}`);
+            return;
+        }
+        
         semesterColumn.appendChild(newSubjectCard);
 
         // Update drag and drop functionality
         enableDragAndDropForCard(newSubjectCard);
 
+        // Update unlocks relationships for existing subjects
+        updateUnlocksRelationships();
+
         // Record as simulation change
         recordSimulationChange(code, 'added', {
             name: name,
             semester: semester,
-            prerequisites: prerequisites,
+            prerequisites: prerequisiteArray,
             description: description
         }, null);
 
@@ -1267,7 +1332,9 @@ document.addEventListener('DOMContentLoaded', function() {
         bootstrap.Modal.getInstance(document.getElementById('addSubjectModal')).hide();
 
         // Show success message
-        showSuccessMessage(`Materia "${name}" agregada exitosamente al semestre ${semester}`);
+        showSuccessMessage(`Materia "${name}" (${code}) agregada exitosamente al semestre ${semester}`);
+        
+        console.log(`New subject added: ${code} - ${name}, Prerequisites: [${prerequisiteArray.join(', ')}]`);
     };
 
     // Create subject card HTML
@@ -1282,9 +1349,8 @@ document.addEventListener('DOMContentLoaded', function() {
         card.innerHTML = `
             <div class="subject-name">${name}</div>
             <div class="subject-code">${code}</div>
-            <div class="semester-badge">Semestre ${semester}</div>
             <div class="added-badge">
-                <i class="fas fa-plus-circle"></i>
+                <i class="fas fa-plus"></i>
             </div>
         `;
 
@@ -1294,22 +1360,35 @@ document.addEventListener('DOMContentLoaded', function() {
     // Enable drag and drop for a single card
     function enableDragAndDropForCard(card) {
         card.draggable = true;
-        
-        card.addEventListener('dragstart', function(e) {
-            draggedCard = this;
-            this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', this.outerHTML);
-        });
-        
-        card.addEventListener('dragend', function(e) {
-            this.classList.remove('dragging');
-            draggedCard = null;
+        // Drag functionality is handled by event delegation in enableDragAndDrop()
+    }
+
+    // Update unlocks relationships when new subjects are added
+    function updateUnlocksRelationships() {
+        // Clear all existing unlocks
+        document.querySelectorAll('.subject-card').forEach(card => {
+            card.dataset.unlocks = '';
         });
 
-        card.addEventListener('click', function() {
-            highlightRelated(this);
+        // Rebuild unlocks relationships
+        document.querySelectorAll('.subject-card').forEach(card => {
+            const subjectCode = card.dataset.subjectId;
+            const prerequisites = card.dataset.prerequisites.split(',').filter(p => p.trim());
+            
+            // For each prerequisite, add this subject to their unlocks
+            prerequisites.forEach(prereqCode => {
+                const prereqCard = document.querySelector(`[data-subject-id="${prereqCode}"]`);
+                if (prereqCard) {
+                    const currentUnlocks = prereqCard.dataset.unlocks.split(',').filter(u => u.trim());
+                    if (!currentUnlocks.includes(subjectCode)) {
+                        currentUnlocks.push(subjectCode);
+                        prereqCard.dataset.unlocks = currentUnlocks.join(',');
+                    }
+                }
+            });
         });
+        
+        console.log('Unlocks relationships updated');
     }
 
     // Get current curriculum state for export
@@ -1318,14 +1397,23 @@ document.addEventListener('DOMContentLoaded', function() {
         
         for (let semester = 1; semester <= 10; semester++) {
             const semesterColumn = document.querySelector(`[data-semester="${semester}"]`);
-            const subjects = Array.from(semesterColumn.querySelectorAll('.subject-card')).map(card => ({
-                code: card.dataset.subjectId,
-                name: card.querySelector('.subject-name').textContent,
-                prerequisites: card.dataset.prerequisites.split(',').filter(p => p.trim()),
-                semester: semester,
-                isAdded: card.classList.contains('added-subject'),
-                description: card.title
-            }));
+            if (!semesterColumn) continue;
+            
+            const subjects = Array.from(semesterColumn.querySelectorAll('.subject-card')).map(card => {
+                // Try to extract credits from existing data or default to null
+                const creditsElement = card.querySelector('.subject-credits');
+                const credits = creditsElement ? parseInt(creditsElement.textContent) : null;
+                
+                return {
+                    code: card.dataset.subjectId,
+                    name: card.querySelector('.subject-name').textContent.trim(),
+                    prerequisites: card.dataset.prerequisites.split(',').filter(p => p.trim()),
+                    semester: semester,
+                    credits: credits,
+                    isAdded: card.classList.contains('added-subject'),
+                    description: card.title || card.querySelector('.subject-name').textContent.trim()
+                };
+            });
             
             if (subjects.length > 0) {
                 curriculum[semester] = subjects;
@@ -1544,8 +1632,65 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Save to convalidation system
     window.saveToConvalidation = function() {
-        // This would integrate with the existing convalidation system
-        alert('Funcionalidad en desarrollo: Integración con sistema de convalidaciones');
+        const exportName = document.getElementById('exportName')?.value.trim() || 
+                          `Malla_Modificada_${new Date().toISOString().split('T')[0]}`;
+        
+        const curriculum = getCurrentCurriculumState();
+        
+        // Show loading state
+        const saveButton = document.querySelector('button[onclick="saveToConvalidation()"]');
+        const originalText = saveButton.innerHTML;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+        saveButton.disabled = true;
+
+        // Prepare data for backend
+        const payload = {
+            name: exportName,
+            institution: 'Simulación Curricular',
+            curriculum: curriculum,
+            changes: simulationChanges,
+            _token: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        };
+
+        // Send to backend
+        fetch('/convalidation/save-modified-curriculum', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': payload._token,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close the export modal
+                const exportModal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+                if (exportModal) {
+                    exportModal.hide();
+                }
+
+                // Show success message
+                showSuccessMessage(`Malla curricular "${exportName}" guardada exitosamente para convalidación`);
+
+                // Redirect to convalidation section after a short delay
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 2000);
+            } else {
+                throw new Error(data.message || 'Error desconocido');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving to convalidation:', error);
+            alert(`Error al guardar la malla curricular: ${error.message}`);
+        })
+        .finally(() => {
+            // Restore button state
+            saveButton.innerHTML = originalText;
+            saveButton.disabled = false;
+        });
     };
 
     // Show success message
@@ -1569,6 +1714,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 5000);
     }
+
+    // Debug: Verify functions are available
+    console.log('=== SIMULATION JS LOADED ===');
+    console.log('addNewSubject available:', typeof window.addNewSubject);
+    console.log('exportModifiedCurriculum available:', typeof window.exportModifiedCurriculum);
+    console.log('=== END DEBUG ===');
 
     // Initialize simulation when page loads
     initializeSimulation();

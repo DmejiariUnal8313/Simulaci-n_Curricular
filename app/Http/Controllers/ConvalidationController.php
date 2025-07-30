@@ -658,4 +658,93 @@ class ConvalidationController extends Controller
             return 'none';
         }
     }
+
+    /**
+     * Save a modified curriculum from simulation as a new external curriculum for convalidation
+     */
+    public function saveModifiedCurriculum(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'curriculum' => 'required|array',
+                'changes' => 'array',
+                'institution' => 'nullable|string|max:255'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Datos de validación incorrectos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $curriculumData = $request->input('curriculum');
+            $changes = $request->input('changes', []);
+            $name = $request->input('name');
+            $institution = $request->input('institution', 'Simulación Curricular');
+
+            // Calculate total subjects
+            $totalSubjects = 0;
+            foreach ($curriculumData as $semester => $subjects) {
+                $totalSubjects += count($subjects);
+            }
+
+            // Create external curriculum using the correct fields
+            $externalCurriculum = ExternalCurriculum::create([
+                'name' => $name,
+                'institution' => $institution,
+                'description' => 'Malla curricular modificada desde simulación. Total de cambios realizados: ' . count($changes) . '. Total de materias: ' . $totalSubjects,
+                'uploaded_file' => null, // No file uploaded, created from simulation
+                'metadata' => [
+                    'source' => 'simulation',
+                    'total_subjects' => $totalSubjects,
+                    'changes_count' => count($changes),
+                    'changes' => $changes,
+                    'created_at' => now()->toISOString()
+                ],
+                'status' => 'active'
+            ]);
+
+            // Process curriculum data and create external subjects
+            foreach ($curriculumData as $semester => $subjects) {
+                foreach ($subjects as $subjectData) {
+                    // Prepare additional_data with information about prerequisites and simulation details
+                    $additionalData = [
+                        'prerequisites' => $subjectData['prerequisites'] ?? [],
+                        'is_added_in_simulation' => $subjectData['isAdded'] ?? false,
+                        'original_description' => $subjectData['description'] ?? null,
+                        'source' => 'simulation'
+                    ];
+
+                    ExternalSubject::create([
+                        'external_curriculum_id' => $externalCurriculum->id,
+                        'code' => $subjectData['code'],
+                        'name' => $subjectData['name'],
+                        'semester' => (int) $subjectData['semester'],
+                        'credits' => $subjectData['credits'] ?? 3, // Default to 3 credits if not specified
+                        'description' => $subjectData['description'] ?? $subjectData['name'],
+                        'additional_data' => $additionalData
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Malla curricular guardada exitosamente para convalidación',
+                'curriculum_id' => $externalCurriculum->id,
+                'redirect_url' => route('convalidation.show', $externalCurriculum->id)
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error saving modified curriculum: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error interno del servidor al guardar la malla curricular',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
