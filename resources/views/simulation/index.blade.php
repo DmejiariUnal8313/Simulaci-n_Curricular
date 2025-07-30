@@ -237,12 +237,17 @@
             });
             */
             
+            // COMMENTED OUT: This was interfering with the main simulation.js click system
+            /*
             // Add click event for highlighting
             card.addEventListener('click', function() {
                 highlightRelatedSubjects(this);
             });
+            */
         }
         
+        // COMMENTED OUT: This function was interfering with the main simulation.js click system
+        /*
         function highlightRelatedSubjects(card) {
             // Check if this card is already selected
             const wasSelected = card.classList.contains('selected');
@@ -285,6 +290,7 @@
             
             console.log(`Selected: ${subjectId}, Prerequisites: [${prerequisites.join(', ')}], Unlocks: [${unlocks.join(', ')}]`);
         }
+        */
         
         function showSuccessMessage(message) {
             const alertHtml = `
@@ -560,6 +566,8 @@
                 }
             });
             
+            // COMMENTED OUT: This was interfering with the main simulation.js click system
+            /*
             // Add click outside listener to deselect cards
             document.addEventListener('click', function(e) {
                 // If click is not on a subject card, clear highlights
@@ -570,6 +578,7 @@
                     window.selectedCard = null;
                 }
             });
+            */
         }
         
         // Reset temporary changes

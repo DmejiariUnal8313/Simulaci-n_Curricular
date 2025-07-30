@@ -22,6 +22,7 @@ window.exportModifiedCurriculum = function() {
 document.addEventListener('DOMContentLoaded', function() {
     const subjectCards = document.querySelectorAll('.subject-card');
     let selectedCard = null;
+    let selectedSubjectId = null; // Track by ID instead of element reference
     let draggedCard = null;
     let simulationChanges = [];
     let originalCurriculum = {};
@@ -122,6 +123,12 @@ document.addEventListener('DOMContentLoaded', function() {
         subjectCards.forEach(card => {
             card.classList.remove('prerequisite', 'unlocks', 'selected');
             // Reset transform to avoid visual issues
+            card.style.transform = '';
+        });
+        
+        // Also clear highlights from dynamically added cards
+        document.querySelectorAll('.subject-card').forEach(card => {
+            card.classList.remove('prerequisite', 'unlocks', 'selected');
             card.style.transform = '';
         });
     }
@@ -610,33 +617,45 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add click event listeners to subject cards using event delegation
     document.addEventListener('click', function(e) {
+        console.log('🔍 CLICK EVENT TRIGGERED');
+        console.log('Target:', e.target);
+        console.log('Target tagName:', e.target.tagName);
+        console.log('Target classes:', e.target.className);
+        
         const subjectCard = e.target.closest('.subject-card');
+        console.log('Found subject card:', subjectCard?.dataset?.subjectId || 'none');
         
         if (subjectCard) {
-            // This is a click on a subject card
-            e.stopPropagation(); // Prevent event bubbling
+            // Stop ANY other event handlers from running
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            e.stopPropagation();
+            
             const subjectId = subjectCard.dataset.subjectId;
+            console.log(`🎯 PROCESSING CLICK on: ${subjectId}`);
+            console.log(`📍 Currently selected: ${selectedSubjectId || 'none'}`);
             
-            console.log(`Clicked on subject: ${subjectId}, currently selected: ${selectedCard?.dataset?.subjectId || 'none'}`);
-            
-            // If clicking the same card, toggle off
-            if (selectedCard === subjectCard) {
-                console.log('Deselecting current card');
+            // If clicking the same card (by ID), toggle off
+            if (selectedSubjectId === subjectId) {
+                console.log('🔄 DESELECTING - Same subject clicked');
                 clearHighlights();
                 selectedCard = null;
+                selectedSubjectId = null;
                 return;
             }
             
             // Highlight related subjects
-            console.log('Selecting new card and highlighting related subjects');
+            console.log('🎨 HIGHLIGHTING - New subject selected');
             highlightRelated(subjectCard);
             selectedCard = subjectCard;
+            selectedSubjectId = subjectId;
         } else {
             // Click outside - clear highlights
-            if (selectedCard) {
-                console.log('Clicked outside, clearing highlights');
+            if (selectedSubjectId) {
+                console.log('🚫 CLICK OUTSIDE - Clearing selection');
                 clearHighlights();
                 selectedCard = null;
+                selectedSubjectId = null;
             }
         }
     });

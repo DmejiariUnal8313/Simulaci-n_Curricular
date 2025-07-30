@@ -666,29 +666,6 @@ body {
     }
 }
 
-/* New subject card styles */
-.subject-card.added-subject {
-    border-color: #198754 !important;
-    border-width: 3px !important;
-    background: linear-gradient(135deg, #d1e7dd 0%, #a3d9a4 100%) !important;
-}
-
-.added-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #198754;
-    color: white;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
 /* Export modal styles */
 .stat-card {
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
