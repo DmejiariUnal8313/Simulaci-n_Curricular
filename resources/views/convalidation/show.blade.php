@@ -54,8 +54,12 @@
                                     <small class="text-muted">Libre Elección</small>
                                 </div>
                                 <div class="col">
-                                    <h5 class="text-warning" id="pending-count">{{ $stats['pending_subjects'] }}</h5>
-                                    <small class="text-muted">Pendientes</small>
+                                    <h5 class="text-warning" id="not-convalidated-count">{{ $stats['not_convalidated'] ?? 0 }}</h5>
+                                    <small class="text-muted">Materias Adicionales</small>
+                                </div>
+                                <div class="col">
+                                    <h5 class="text-secondary" id="pending-count">{{ $stats['pending_subjects'] }}</h5>
+                                    <small class="text-muted">Sin Configurar</small>
                                 </div>
                             </div>
                         </div>
@@ -174,10 +178,15 @@
                                                                         <small class="text-muted">{{ $convalidationStatus['internal_subject']->code }}</small>
                                                                     </div>
                                                                 </div>
-                                                            @else
+                                                            @elseif($convalidationStatus['type'] === 'free_elective')
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="fas fa-star text-info me-2"></i>
                                                                     <span class="fw-bold text-info">Libre Elección</span>
+                                                                </div>
+                                                            @elseif($convalidationStatus['type'] === 'not_convalidated')
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fas fa-plus-circle text-warning me-2"></i>
+                                                                    <span class="fw-bold text-warning">Materia Adicional</span>
                                                                 </div>
                                                             @endif
                                                         @else
@@ -189,10 +198,22 @@
                                                     </td>
                                                     <td>
                                                         @if($isConvalidated)
-                                                            <span class="badge bg-success">
-                                                                <i class="fas fa-check me-1"></i>
-                                                                Convalidada
-                                                            </span>
+                                                            @if($convalidationStatus['type'] === 'direct')
+                                                                <span class="badge bg-success">
+                                                                    <i class="fas fa-check me-1"></i>
+                                                                    Convalidada
+                                                                </span>
+                                                            @elseif($convalidationStatus['type'] === 'free_elective')
+                                                                <span class="badge bg-info">
+                                                                    <i class="fas fa-star me-1"></i>
+                                                                    Libre Elección
+                                                                </span>
+                                                            @elseif($convalidationStatus['type'] === 'not_convalidated')
+                                                                <span class="badge bg-warning">
+                                                                    <i class="fas fa-plus-circle me-1"></i>
+                                                                    Materia Adicional
+                                                                </span>
+                                                            @endif
                                                         @else
                                                             <span class="badge bg-warning">
                                                                 <i class="fas fa-clock me-1"></i>
@@ -273,6 +294,13 @@
                                 <label class="form-check-label" for="type_free">
                                     <strong>Libre Elección</strong><br>
                                     <small class="text-muted">Se reconoce como créditos electivos, sin equivalencia específica</small>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="convalidation_type" id="type_not_convalidated" value="not_convalidated">
+                                <label class="form-check-label" for="type_not_convalidated">
+                                    <strong>No Convalidada (Materia Adicional)</strong><br>
+                                    <small class="text-muted">Esta materia se agrega como requisito adicional a la nueva malla curricular</small>
                                 </label>
                             </div>
                         </div>
@@ -446,6 +474,9 @@ function updateStatistics(stats) {
     const electiveCount = document.getElementById('elective-count');
     if (electiveCount) electiveCount.textContent = stats.free_electives;
     
+    const notConvalidatedCount = document.getElementById('not-convalidated-count');
+    if (notConvalidatedCount) notConvalidatedCount.textContent = stats.not_convalidated;
+    
     const pendingCount = document.getElementById('pending-count');
     if (pendingCount) pendingCount.textContent = stats.pending_subjects;
     
@@ -473,13 +504,35 @@ function updateConvalidationDisplay(subjectId, convalidation) {
                 </div>
             </div>
         `;
-    } else {
+    } else if (convalidation.convalidation_type === 'free_elective') {
         displayElement.innerHTML = `
             <div class="d-flex align-items-center">
                 <i class="fas fa-star text-info me-2"></i>
                 <span class="fw-bold text-info">Libre Elección</span>
             </div>
         `;
+    } else if (convalidation.convalidation_type === 'not_convalidated') {
+        displayElement.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-plus-circle text-warning me-2"></i>
+                <span class="fw-bold text-warning">Materia Adicional</span>
+            </div>
+        `;
+    }
+    
+    // Update status badge
+    const statusElement = document.querySelector(`#subject-row-${subjectId} .badge`);
+    if (statusElement) {
+        if (convalidation.convalidation_type === 'direct') {
+            statusElement.className = 'badge bg-success';
+            statusElement.innerHTML = '<i class="fas fa-check me-1"></i>Convalidada';
+        } else if (convalidation.convalidation_type === 'free_elective') {
+            statusElement.className = 'badge bg-info';
+            statusElement.innerHTML = '<i class="fas fa-star me-1"></i>Libre Elección';
+        } else if (convalidation.convalidation_type === 'not_convalidated') {
+            statusElement.className = 'badge bg-warning';
+            statusElement.innerHTML = '<i class="fas fa-plus-circle me-1"></i>Materia Adicional';
+        }
     }
 }
 

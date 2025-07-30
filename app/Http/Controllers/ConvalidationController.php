@@ -111,7 +111,7 @@ class ConvalidationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'external_subject_id' => 'required|exists:external_subjects,id',
-            'convalidation_type' => 'required|in:direct,free_elective',
+            'convalidation_type' => 'required|in:direct,free_elective,not_convalidated',
             'internal_subject_code' => 'nullable|exists:subjects,code',
             'notes' => 'nullable|string',
             'equivalence_percentage' => 'nullable|numeric|min:0|max:100'
@@ -124,6 +124,11 @@ class ConvalidationController extends Controller
         // Validate that direct convalidations have an internal subject
         if ($request->convalidation_type === 'direct' && !$request->internal_subject_code) {
             return response()->json(['error' => 'Las convalidaciones directas requieren una materia interna'], 422);
+        }
+
+        // Validate that not_convalidated type doesn't have an internal subject
+        if ($request->convalidation_type === 'not_convalidated' && $request->internal_subject_code) {
+            return response()->json(['error' => 'Las materias no convalidadas no deben tener una materia interna asignada'], 422);
         }
 
         try {
@@ -139,7 +144,7 @@ class ConvalidationController extends Controller
                 'internal_subject_code' => $request->convalidation_type === 'direct' ? $request->internal_subject_code : null,
                 'convalidation_type' => $request->convalidation_type,
                 'notes' => $request->notes,
-                'equivalence_percentage' => $request->equivalence_percentage ?? 100.00,
+                'equivalence_percentage' => $request->convalidation_type === 'not_convalidated' ? 0.00 : ($request->equivalence_percentage ?? 100.00),
                 'status' => 'pending'
             ]);
 
@@ -324,9 +329,10 @@ class ConvalidationController extends Controller
                 ->with(['externalSubject', 'internalSubject'])
                 ->get();
 
-            // Separate direct and free elective convalidations
+            // Separate direct, free elective, and not convalidated convalidations
             $directConvalidations = $convalidations->where('convalidation_type', 'direct');
             $freeElectiveConvalidations = $convalidations->where('convalidation_type', 'free_elective');
+            $notConvalidatedConvalidations = $convalidations->where('convalidation_type', 'not_convalidated');
 
             // Apply credit limit and priority to free electives
             $selectedFreeElectives = $this->selectFreeElectives(
@@ -355,6 +361,10 @@ class ConvalidationController extends Controller
                 'free_electives_credits_available' => $freeElectiveConvalidations->sum('externalSubject.credits'),
                 'max_free_elective_credits' => $maxFreeElectiveCredits,
                 'excess_free_electives' => $freeElectiveConvalidations->count() - $selectedFreeElectives->count(),
+                'additional_subjects_required' => $notConvalidatedConvalidations->count(),
+                'total_credits_added' => $notConvalidatedConvalidations->sum(function($conv) { 
+                    return $conv->externalSubject->credits ?? 0; 
+                }),
                 'student_details' => [],
                 'subject_impact' => [],
                 'configuration' => [

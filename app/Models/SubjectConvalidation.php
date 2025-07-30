@@ -75,6 +75,14 @@ class SubjectConvalidation extends Model
     }
 
     /**
+     * Check if this is a not convalidated subject (additional requirement).
+     */
+    public function isNotConvalidated()
+    {
+        return $this->convalidation_type === 'not_convalidated';
+    }
+
+    /**
      * Get the display name for the convalidation.
      */
     public function getDisplayName()
@@ -83,6 +91,8 @@ class SubjectConvalidation extends Model
             return $this->internalSubject->name;
         } elseif ($this->isFreeElective()) {
             return 'Libre Elección';
+        } elseif ($this->isNotConvalidated()) {
+            return 'Materia Adicional';
         }
         return 'Sin convalidación';
     }
