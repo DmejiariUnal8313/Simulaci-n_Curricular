@@ -83,6 +83,7 @@ class ExternalCurriculum extends Model
         $convalidatedSubjects = $this->convalidations()->count();
         $directConvalidations = $this->convalidations()->where('convalidation_type', 'direct')->count();
         $freeElectives = $this->convalidations()->where('convalidation_type', 'free_elective')->count();
+        $notConvalidated = $this->convalidations()->where('convalidation_type', 'not_convalidated')->count();
         
         // Calculate career completion percentage based on internal curriculum credits
         $careerStats = $this->getCareerCompletionStats();
@@ -92,6 +93,7 @@ class ExternalCurriculum extends Model
             'convalidated_subjects' => $convalidatedSubjects,
             'direct_convalidations' => $directConvalidations,
             'free_electives' => $freeElectives,
+            'not_convalidated' => $notConvalidated,
             'pending_subjects' => $totalSubjects - $convalidatedSubjects,
             'completion_percentage' => $totalSubjects > 0 ? round(($convalidatedSubjects / $totalSubjects) * 100, 2) : 0,
             'career_completion_percentage' => $careerStats['completion_percentage'],

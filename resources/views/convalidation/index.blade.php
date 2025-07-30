@@ -395,11 +395,70 @@
         </div>
     </div>
 </div>
+
+<!-- Progress Explanation Modal -->
+<div class="modal fade" id="progressExplanationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Explicación del Cambio de Progreso
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <h6 id="student-name-title" class="text-primary"></h6>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="badge bg-secondary fs-6 mb-2" id="original-progress-badge">0%</div>
+                            <div class="small text-muted">Progreso Original</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="fas fa-arrow-right text-muted fs-4"></i>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="badge fs-6 mb-2" id="new-progress-badge">0%</div>
+                            <div class="small text-muted">Progreso con Nueva Malla</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert" id="change-summary"></div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Explicación Detallada
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="detailed-explanation" style="white-space: pre-line;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
 let currentImpactResults = null;
+let currentCurriculumId = null;
 
 function deleteCurriculum(curriculumId) {
     const deleteForm = document.getElementById('deleteForm');
@@ -462,11 +521,30 @@ document.getElementById('impactConfigForm').addEventListener('submit', function(
     });
 });
 
-function analyzeImpact(curriculumId) {
-    // Open modal first
-    const modal = new bootstrap.Modal(document.getElementById('impactAnalysisModal'));
+function showImpactConfigModal(curriculumId) {
+    currentCurriculumId = curriculumId;
+    const modal = new bootstrap.Modal(document.getElementById('impactConfigModal'));
     modal.show();
-    
+}
+
+function runImpactAnalysis() {
+    if (!currentCurriculumId) {
+        showErrorMessage('Error: No se ha seleccionado una malla curricular');
+        return;
+    }
+
+    // Cerrar el modal de configuración
+    const configModal = bootstrap.Modal.getInstance(document.getElementById('impactConfigModal'));
+    configModal.hide();
+
+    // Abrir el modal de análisis
+    const analysisModal = new bootstrap.Modal(document.getElementById('impactAnalysisModal'));
+    analysisModal.show();
+
+    // Obtener valores del formulario
+    const maxFreeElectiveCredits = document.getElementById('maxFreeElectiveCredits').value || 12;
+    const priorityCriteria = document.querySelector('input[name="priority_criteria"]:checked')?.value || 'credits';
+
     // Reset content
     document.getElementById('impactAnalysisContent').innerHTML = `
         <div class="text-center py-5">
@@ -479,16 +557,31 @@ function analyzeImpact(curriculumId) {
     `;
     
     document.getElementById('exportImpactBtn').style.display = 'none';
-    
-    // Make AJAX request
-    fetch(`/convalidation/${curriculumId}/analyze-impact`, {
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfToken) {
+        showErrorMessage('Error: Token CSRF no encontrado');
+        return;
+    }
+
+    // Realizar la petición AJAX
+    fetch(`/convalidation/${currentCurriculumId}/analyze-impact`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        }
+            'X-CSRF-TOKEN': csrfToken.getAttribute('content')
+        },
+        body: JSON.stringify({
+            max_free_elective_credits: maxFreeElectiveCredits,
+            priority_criteria: priorityCriteria
+        })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error HTTP ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             currentImpactResults = data.results;
@@ -500,7 +593,7 @@ function analyzeImpact(curriculumId) {
     })
     .catch(error => {
         console.error('Error:', error);
-        showErrorMessage('Error de conexión al analizar el impacto');
+        showErrorMessage('Error: ' + error.message);
     });
 }
 
@@ -590,28 +683,28 @@ function generateSummaryTab(results) {
                         <div class="mb-3">
                             <div class="d-flex justify-content-between">
                                 <span>Estudiantes con progreso mejorado:</span>
-                                <strong class="text-success">${results.students_improved}</strong>
+                                <span class="badge bg-success">${results.students_with_improved_progress || 0}</span>
                             </div>
-                            <div class="progress mb-2" style="height: 20px;">
-                                <div class="progress-bar bg-success" style="width: ${(results.students_improved / results.total_students) * 100}%"></div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between">
-                                <span>Estudiantes con progreso igual:</span>
-                                <strong class="text-info">${results.students_same}</strong>
-                            </div>
-                            <div class="progress mb-2" style="height: 20px;">
-                                <div class="progress-bar bg-info" style="width: ${(results.students_same / results.total_students) * 100}%"></div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-success" style="width: ${((results.students_with_improved_progress || 0) / results.total_students * 100)}%"></div>
                             </div>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between">
                                 <span>Estudiantes con progreso reducido:</span>
-                                <strong class="text-danger">${results.students_worsened}</strong>
+                                <span class="badge bg-danger">${results.students_with_reduced_progress || 0}</span>
                             </div>
-                            <div class="progress mb-2" style="height: 20px;">
-                                <div class="progress-bar bg-danger" style="width: ${(results.students_worsened / results.total_students) * 100}%"></div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-danger" style="width: ${((results.students_with_reduced_progress || 0) / results.total_students * 100)}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <span>Estudiantes sin cambio:</span>
+                                <span class="badge bg-secondary">${results.students_with_no_change || 0}</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-secondary" style="width: ${((results.students_with_no_change || 0) / results.total_students * 100)}%"></div>
                             </div>
                         </div>
                     </div>
@@ -620,613 +713,342 @@ function generateSummaryTab(results) {
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-chart-line me-2"></i>
-                            Beneficios de la Convalidación
-                        </h6>
+                        <h6 class="mb-0">Estadísticas Generales</h6>
                     </div>
                     <div class="card-body">
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>Convalidaciones directas:</span>
-                                <strong>${results.direct_convalidations_count}</strong>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>Libre elección utilizadas:</span>
-                                <strong>${results.free_electives_used} de ${results.free_electives_available}</strong>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>Créditos de libre elección:</span>
-                                <strong>${results.free_electives_credits_used} de ${results.max_free_elective_credits}</strong>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>Materias excedentes:</span>
-                                <strong class="text-danger">${results.excess_free_electives}</strong>
-                            </li>
-                        </ul>
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <h5 class="text-primary">${results.total_convalidated_credits || 0}</h5>
+                                <small>Créditos Convalidados</small>
+                            </div>
+                            <div class="col-4">
+                                <h5 class="text-warning">${results.total_new_credits || 0}</h5>
+                                <small>Créditos Nuevos</small>
+                            </div>
+                            <div class="col-4">
+                                <h5 class="text-danger">${results.total_lost_credits || 0}</h5>
+                                <small>Créditos Perdidos</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        ${results.excess_free_electives > 0 ? `
-        <div class="alert alert-warning">
-            <h6 class="alert-heading">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                Materias Excedentes Detectadas
-            </h6>
-            <p class="mb-0">
-                ${results.excess_free_electives} materias de libre elección exceden el límite de 
-                ${results.max_free_elective_credits} créditos configurado. Estas materias podrían 
-                afectar negativamente a algunos estudiantes al no poder ser convalidadas.
-            </p>
-        </div>
-        ` : ''}
-        
-        <div class="alert alert-info">
-            <h6 class="alert-heading">
-                <i class="fas fa-info-circle me-2"></i>
-                Configuración Aplicada
-            </h6>
-            <p class="mb-0">
-                <strong>Límite de libre elección:</strong> ${results.max_free_elective_credits} créditos<br>
-                <strong>Criterio de prioridad:</strong> ${results.configuration.priority_criteria === 'credits' ? 'Materias con más créditos' : 
-                    results.configuration.priority_criteria === 'semester' ? 'Materias de semestres tempranos' : 'Materias que benefician más estudiantes'}
-            </p>
         </div>
     `;
 }
 
 function generateStudentsTab(results) {
     if (!results.student_details || results.student_details.length === 0) {
-        return '<div class="alert alert-warning">No hay estudiantes afectados por esta convalidación.</div>';
+        return '<div class="alert alert-info">No hay estudiantes afectados por el cambio de malla.</div>';
     }
-    
+
     let html = `
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Estudiante</th>
                         <th>Progreso Original</th>
-                        <th>Progreso con Convalidación</th>
+                        <th>Progreso Nuevo</th>
                         <th>Cambio</th>
-                        <th>Materias Convalidadas</th>
-                        <th>Estado</th>
+                        <th>Convalidadas</th>
+                        <th>Nuevas</th>
+                        <th>Perdidas</th>
+                        <th>Explicación</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
-    
+
     results.student_details.forEach(student => {
-        const changeClass = student.progress_change > 0 ? 'text-success' : 
-                           student.progress_change < 0 ? 'text-danger' : 'text-muted';
-        const changeIcon = student.progress_change > 0 ? 'fas fa-arrow-up' : 
-                          student.progress_change < 0 ? 'fas fa-arrow-down' : 'fas fa-minus';
+        const changeClass = student.progress_change > 0.1 ? 'text-success' : 
+                          student.progress_change < -0.1 ? 'text-danger' : 'text-muted';
+        const changeIcon = student.progress_change > 0.1 ? 'fa-arrow-up' : 
+                         student.progress_change < -0.1 ? 'fa-arrow-down' : 'fa-minus';
+        
+        const progressBarClass = student.progress_change > 0.1 ? 'bg-success' : 
+                               student.progress_change < -0.1 ? 'bg-danger' : 'bg-warning';
         
         html += `
             <tr>
                 <td>
-                    <div>
-                        <strong>${student.name}</strong>
-                        <br><small class="text-muted">ID: ${student.student_id}</small>
-                    </div>
+                    <strong>${escapeHtml(student.name || 'Sin nombre')}</strong><br>
+                    <small class="text-muted">${escapeHtml(student.email || 'Sin email')}</small>
                 </td>
                 <td>
                     <div class="progress" style="height: 20px;">
-                        <div class="progress-bar bg-primary" style="width: ${student.original_progress}%">
-                            ${student.original_progress}%
+                        <div class="progress-bar bg-secondary" style="width: ${student.original_progress || 0}%">
+                            ${(student.original_progress || 0).toFixed(1)}%
                         </div>
                     </div>
+                    <small class="text-muted">${student.original_subjects_passed || 0} materias</small>
                 </td>
                 <td>
                     <div class="progress" style="height: 20px;">
-                        <div class="progress-bar bg-success" style="width: ${student.new_progress}%">
-                            ${student.new_progress}%
+                        <div class="progress-bar ${progressBarClass}" style="width: ${student.new_progress || 0}%">
+                            ${(student.new_progress || 0).toFixed(1)}%
                         </div>
                     </div>
+                    <small class="text-muted">${student.convalidated_subjects_count || 0} convalidadas</small>
                 </td>
                 <td class="${changeClass}">
-                    <i class="${changeIcon} me-1"></i>
-                    ${student.progress_change > 0 ? '+' : ''}${student.progress_change}%
+                    <i class="fas ${changeIcon}"></i>
+                    ${student.progress_change > 0 ? '+' : ''}${(student.progress_change || 0).toFixed(1)}%
                 </td>
                 <td>
-                    <span class="badge bg-info">${student.convalidated_count}</span>
+                    <span class="badge bg-success">${student.convalidated_subjects_count || 0}</span>
                 </td>
                 <td>
-                    ${student.progress_change > 0 ? 
-                        '<span class="badge bg-success">Beneficiado</span>' : 
-                        student.progress_change < 0 ? 
-                        '<span class="badge bg-danger">Perjudicado</span>' : 
-                        '<span class="badge bg-secondary">Sin cambio</span>'
-                    }
+                    <span class="badge bg-warning">${student.new_subjects_count || 0}</span>
+                </td>
+                <td>
+                    <span class="badge bg-danger">${student.lost_credits_count || 0}</span>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-outline-info show-explanation-btn" 
+                            data-student-name="${escapeHtml(student.name || 'Sin nombre')}"
+                            data-explanation="${encodeURIComponent(student.progress_explanation || 'Sin explicación disponible')}"
+                            data-original-progress="${student.original_progress || 0}"
+                            data-new-progress="${student.new_progress || 0}"
+                            data-progress-change="${student.progress_change || 0}"
+                            data-convalidated-count="${student.convalidated_subjects_count || 0}"
+                            data-new-subjects-count="${student.new_subjects_count || 0}"
+                            data-lost-credits-count="${student.lost_credits_count || 0}"
+                            title="Ver explicación detallada del cambio de progreso">
+                        <i class="fas fa-info-circle"></i> Detalles
+                    </button>
                 </td>
             </tr>
         `;
     });
-    
+
     html += `
                 </tbody>
             </table>
         </div>
+        
+        <div class="mt-3">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-2"></i>Interpretación de los Datos</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Convalidadas:</strong> Materias que el estudiante cursó y pueden ser reconocidas en la nueva malla.
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Nuevas:</strong> Materias adicionales que debe cursar en la nueva malla.
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Perdidas:</strong> Materias que cursó pero no tienen equivalencia en la nueva malla.
+                    </div>
+                </div>
+            </div>
+        </div>
     `;
-    
+
     return html;
 }
 
 function generateSubjectsTab(results) {
-    if (!results.subject_impact || results.subject_impact.length === 0) {
-        return '<div class="alert alert-warning">No hay información de impacto por materias.</div>';
-    }
-    
-    // Separate subjects by type and selection status
-    const directConvalidations = results.subject_impact.filter(s => s.convalidation_type === 'direct');
-    const selectedFreeElectives = results.subject_impact.filter(s => s.convalidation_type === 'free_elective' && s.is_selected);
-    const excessFreeElectives = results.subject_impact.filter(s => s.convalidation_type === 'free_elective_excess');
-    
-    let html = `
+    return `
         <div class="row">
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-check-circle me-2"></i>
-                            Convalidaciones Directas (${directConvalidations.length})
-                        </h6>
+                    <div class="card-header">
+                        <h6 class="mb-0">Materias Más Convalidadas</h6>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Materia Externa</th>
-                                        <th>Convalida a</th>
-                                        <th>Beneficiados</th>
-                                        <th>Beneficio</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-    `;
-    
-    directConvalidations.forEach(subject => {
-        html += `
-            <tr>
-                <td>
-                    <div>
-                        <strong>${subject.external_subject_code}</strong>
-                        <br><small class="text-muted">${subject.external_subject_name}</small>
-                    </div>
-                </td>
-                <td>
-                    <span class="badge bg-success">Directa</span>
-                    <br><small>${subject.internal_subject_name}</small>
-                </td>
-                <td>
-                    <span class="badge bg-primary">${subject.students_benefited}</span>
-                </td>
-                <td>
-                    <strong class="text-success">+${subject.average_benefit}%</strong>
-                </td>
-            </tr>
-        `;
-    });
-    
-    html += `
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">Funcionalidad en desarrollo</div>
                     </div>
                 </div>
             </div>
-            
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-graduation-cap me-2"></i>
-                            Libre Elección Utilizadas (${selectedFreeElectives.length})
-                        </h6>
+                    <div class="card-header">
+                        <h6 class="mb-0">Materias Problemáticas</h6>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Materia Externa</th>
-                                        <th>Créditos</th>
-                                        <th>Beneficiados</th>
-                                        <th>Beneficio</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-    `;
-    
-    selectedFreeElectives.forEach(subject => {
-        html += `
-            <tr>
-                <td>
-                    <div>
-                        <strong>${subject.external_subject_code}</strong>
-                        <br><small class="text-muted">${subject.external_subject_name}</small>
-                    </div>
-                </td>
-                <td>
-                    <span class="badge bg-info">${subject.credits} cr.</span>
-                </td>
-                <td>
-                    <span class="badge bg-primary">${subject.students_benefited}</span>
-                </td>
-                <td>
-                    <strong class="text-success">+${subject.average_benefit}%</strong>
-                </td>
-            </tr>
-        `;
-    });
-    
-    html += `
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">Funcionalidad en desarrollo</div>
                     </div>
                 </div>
             </div>
         </div>
     `;
-    
-    // Add excess subjects section if any
-    if (excessFreeElectives.length > 0) {
-        const totalExcessCredits = excessFreeElectives.reduce((sum, s) => sum + s.credits, 0);
-        
-        html += `
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card border-danger">
-                        <div class="card-header bg-danger text-white">
-                            <h6 class="mb-0">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Materias Excedentes - No Convalidadas (${excessFreeElectives.length} materias, ${totalExcessCredits} créditos)
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert alert-danger mb-3">
-                                <strong>⚠️ Estas materias exceden el límite de ${results.max_free_elective_credits} créditos</strong>
-                                <br>Los estudiantes que las tengan aprobadas no recibirán beneficio y podrían verse perjudicados.
-                            </div>
-                            
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Materia Externa</th>
-                                            <th>Créditos</th>
-                                            <th>Razón de Exclusión</th>
-                                            <th>Impacto</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-        `;
-        
-        excessFreeElectives.forEach(subject => {
-            html += `
-                <tr>
-                    <td>
-                        <div>
-                            <strong>${subject.external_subject_code}</strong>
-                            <br><small class="text-muted">${subject.external_subject_name}</small>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="badge bg-secondary">${subject.credits} cr.</span>
-                    </td>
-                    <td>
-                        <span class="badge bg-danger">Excede límite</span>
-                    </td>
-                    <td>
-                        <span class="text-danger">
-                            <i class="fas fa-times-circle me-1"></i>
-                            Sin beneficio
-                        </span>
-                    </td>
-                </tr>
-            `;
-        });
-        
-        html += `
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    return html;
 }
 
 function exportImpactResults() {
     if (!currentImpactResults) {
-        alert('No hay resultados para exportar');
+        showErrorMessage('No hay resultados para exportar');
         return;
     }
+
+    const csvContent = generateCSVContent(currentImpactResults);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
     
-    const dataStr = JSON.stringify(currentImpactResults, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `impacto_convalidacion_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
+function generateCSVContent(results) {
+    let csv = 'Estudiante,Email,Progreso Original,Progreso Nuevo,Cambio,Materias Convalidadas\n';
     
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `analisis_impacto_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (results.student_details) {
+        results.student_details.forEach(student => {
+            csv += `"${student.name}","${student.email}",${student.original_progress}%,${student.new_progress}%,${student.progress_change}%,${student.convalidated_subjects}\n`;
+        });
+    }
+    
+    return csv;
 }
 
 function showErrorMessage(message) {
-    document.getElementById('impactAnalysisContent').innerHTML = `
-        <div class="alert alert-danger">
-            <h6 class="alert-heading">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                Error en el Análisis
-            </h6>
-            <p class="mb-0">${message}</p>
-        </div>
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
-}
-
-// New functions for credit limit configuration
-let currentCurriculumId = null;
-
-function showImpactConfigModal(curriculumId) {
-    currentCurriculumId = curriculumId;
     
-    // Open config modal first
-    const modal = new bootstrap.Modal(document.getElementById('impactConfigModal'));
-    modal.show();
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
     
-    // Load convalidation preview
-    loadConvalidationPreview(curriculumId);
-    
-    // Update preview when credits limit changes
-    document.getElementById('maxFreeElectiveCredits').addEventListener('input', function() {
-        updateExcessSubjectsPreview();
-    });
-    
-    // Update preview when priority criteria changes
-    document.querySelectorAll('input[name="priorityCriteria"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            updateExcessSubjectsPreview();
-        });
-    });
-}
-
-function loadConvalidationPreview(curriculumId) {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]');
-    
-    fetch(`/convalidation/${curriculumId}/convalidations-summary`, {
-        method: 'GET',
-        headers: {
-            'X-CSRF-TOKEN': csrfToken ? csrfToken.getAttribute('content') : ''
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
         }
-    })
-        .then(response => {
-            if (!response.ok) {
-                if (response.status === 419) {
-                    throw new Error('Token CSRF expirado. Recarga la página.');
-                } else {
-                    throw new Error(`Error HTTP ${response.status}`);
-                }
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                displayConvalidationPreview(data.convalidations);
-                window.currentConvalidations = data.convalidations;
-                updateExcessSubjectsPreview();
-            } else {
-                document.getElementById('convalidationPreview').innerHTML = 
-                    `<div class="alert alert-warning">Error: ${data.message || 'Error al cargar convalidaciones'}</div>`;
-            }
-        })
-        .catch(error => {
-            console.error('Error completo en preview:', error);
-            document.getElementById('convalidationPreview').innerHTML = 
-                `<div class="alert alert-danger">Error: ${error.message}</div>`;
-        });
+    }, 5000);
 }
 
-function displayConvalidationPreview(convalidations) {
-    const directConvalidations = convalidations.filter(c => c.type === 'direct');
-    const freeElectives = convalidations.filter(c => c.type === 'free_elective');
-    
-    const html = `
-        <div class="mb-3">
-            <h6 class="text-success">
-                <i class="fas fa-check-circle me-1"></i>
-                Convalidaciones Directas (${directConvalidations.length})
-            </h6>
-            <small class="text-muted">Estas siempre se aplicarán</small>
-        </div>
-        
-        <div class="mb-3">
-            <h6 class="text-info">
-                <i class="fas fa-graduation-cap me-1"></i>
-                Libre Elección (${freeElectives.length} materias, ${freeElectives.reduce((sum, c) => sum + c.credits, 0)} créditos)
-            </h6>
-            <small class="text-muted">Sujetas al límite configurado</small>
-        </div>
-        
-        <div class="list-group" style="max-height: 200px; overflow-y: auto;">
-            ${freeElectives.map(c => `
-                <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                    <div>
-                        <small><strong>${c.external_subject_code}</strong> - ${c.external_subject_name}</small>
-                    </div>
-                    <span class="badge bg-info">${c.credits} cr.</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    
-    document.getElementById('convalidationPreview').innerHTML = html;
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
-function updateExcessSubjectsPreview() {
-    if (!window.currentConvalidations) return;
+// Event delegation para los botones de explicación
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('show-explanation-btn') || 
+        e.target.closest('.show-explanation-btn')) {
+        
+        const button = e.target.classList.contains('show-explanation-btn') ? 
+                      e.target : e.target.closest('.show-explanation-btn');
+        
+        const studentName = button.getAttribute('data-student-name') || 'Estudiante';
+        const explanation = decodeURIComponent(button.getAttribute('data-explanation') || '');
+        const originalProgress = parseFloat(button.getAttribute('data-original-progress')) || 0;
+        const newProgress = parseFloat(button.getAttribute('data-new-progress')) || 0;
+        const progressChange = parseFloat(button.getAttribute('data-progress-change')) || 0;
+        const convalidatedCount = parseInt(button.getAttribute('data-convalidated-count')) || 0;
+        const newSubjectsCount = parseInt(button.getAttribute('data-new-subjects-count')) || 0;
+        const lostCreditsCount = parseInt(button.getAttribute('data-lost-credits-count')) || 0;
+        
+        // Mostrar el modal con todos los datos
+        showProgressExplanationDetailed(
+            studentName, 
+            explanation, 
+            originalProgress, 
+            newProgress, 
+            progressChange, 
+            convalidatedCount, 
+            newSubjectsCount, 
+            lostCreditsCount
+        );
+    }
+});
+
+function showProgressExplanationDetailed(studentName, explanation, originalProgress, newProgress, progressChange, convalidatedCount, newSubjectsCount, lostCreditsCount) {
+    // Set student name
+    document.getElementById('student-name-title').textContent = `Estudiante: ${studentName}`;
     
-    const maxCredits = parseInt(document.getElementById('maxFreeElectiveCredits').value) || 0;
-    const priorityCriteria = document.querySelector('input[name="priorityCriteria"]:checked').value;
+    // Set progress badges
+    document.getElementById('original-progress-badge').textContent = `${originalProgress}%`;
     
-    const freeElectives = window.currentConvalidations.filter(c => c.type === 'free_elective');
+    const newProgressBadge = document.getElementById('new-progress-badge');
+    newProgressBadge.textContent = `${newProgress}%`;
     
-    // Sort based on priority criteria
-    let sortedElectives = [...freeElectives];
-    switch (priorityCriteria) {
-        case 'credits':
-            sortedElectives.sort((a, b) => b.credits - a.credits);
-            break;
-        case 'semester':
-            sortedElectives.sort((a, b) => a.semester - b.semester);
-            break;
-        case 'students':
-            // This would require additional data, for now use credits as fallback
-            sortedElectives.sort((a, b) => b.credits - a.credits);
-            break;
+    // Set badge color based on change
+    if (progressChange > 0.1) {
+        newProgressBadge.className = 'badge bg-success fs-6 mb-2';
+    } else if (progressChange < -0.1) {
+        newProgressBadge.className = 'badge bg-danger fs-6 mb-2';
+    } else {
+        newProgressBadge.className = 'badge bg-warning fs-6 mb-2';
     }
     
-    // Determine which subjects will be accepted and which will be excess
-    let acceptedCredits = 0;
-    const acceptedSubjects = [];
-    const excessSubjects = [];
+    // Set change summary
+    const changeSummary = document.getElementById('change-summary');
+    let summaryHTML = '';
+    let alertClass = '';
     
-    sortedElectives.forEach(subject => {
-        if (acceptedCredits + subject.credits <= maxCredits) {
-            acceptedSubjects.push(subject);
-            acceptedCredits += subject.credits;
-        } else {
-            excessSubjects.push(subject);
-        }
-    });
-    
-    // Update the UI
-    const excessContainer = document.getElementById('excessSubjects');
-    
-    if (excessSubjects.length === 0) {
-        excessContainer.innerHTML = `
-            <div class="alert alert-success mb-0">
-                <i class="fas fa-check-circle me-2"></i>
-                Todas las materias de libre elección caben dentro del límite de ${maxCredits} créditos.
-                <br><small>Se convalidarán ${acceptedCredits} créditos de ${freeElectives.reduce((sum, c) => sum + c.credits, 0)} disponibles.</small>
+    if (progressChange > 0.1) {
+        alertClass = 'alert-success';
+        summaryHTML = `
+            <h6><i class="fas fa-arrow-up me-2"></i>Progreso Mejorado</h6>
+            <p class="mb-2"><strong>Aumento de ${Math.abs(progressChange).toFixed(1)} puntos porcentuales</strong></p>
+            <div class="row text-center">
+                <div class="col-4">
+                    <small class="text-muted">Convalidadas</small><br>
+                    <strong class="text-success">${convalidatedCount}</strong>
+                </div>
+                <div class="col-4">
+                    <small class="text-muted">Nuevas</small><br>
+                    <strong class="text-warning">${newSubjectsCount}</strong>
+                </div>
+                <div class="col-4">
+                    <small class="text-muted">Perdidas</small><br>
+                    <strong class="text-danger">${lostCreditsCount}</strong>
+                </div>
+            </div>
+        `;
+    } else if (progressChange < -0.1) {
+        alertClass = 'alert-danger';
+        summaryHTML = `
+            <h6><i class="fas fa-arrow-down me-2"></i>Progreso Reducido</h6>
+            <p class="mb-2"><strong>Disminución de ${Math.abs(progressChange).toFixed(1)} puntos porcentuales</strong></p>
+            <div class="row text-center">
+                <div class="col-4">
+                    <small class="text-muted">Convalidadas</small><br>
+                    <strong class="text-success">${convalidatedCount}</strong>
+                </div>
+                <div class="col-4">
+                    <small class="text-muted">Nuevas</small><br>
+                    <strong class="text-warning">${newSubjectsCount}</strong>
+                </div>
+                <div class="col-4">
+                    <small class="text-muted">Perdidas</small><br>
+                    <strong class="text-danger">${lostCreditsCount}</strong>
+                </div>
             </div>
         `;
     } else {
-        const excessCredits = excessSubjects.reduce((sum, c) => sum + c.credits, 0);
-        excessContainer.innerHTML = `
-            <div class="alert alert-warning mb-3">
-                <strong>⚠️ ${excessSubjects.length} materias exceden el límite</strong>
-                <br><small>Se perderán ${excessCredits} créditos que podrían afectar negativamente a los estudiantes.</small>
-            </div>
-            
-            <div class="row">
-                <div class="col-md-6">
-                    <h6 class="text-success">✅ Se Convalidarán (${acceptedCredits} créditos)</h6>
-                    <div class="list-group" style="max-height: 150px; overflow-y: auto;">
-                        ${acceptedSubjects.map(s => `
-                            <div class="list-group-item py-2">
-                                <small><strong>${s.external_subject_code}</strong> - ${s.external_subject_name}</small>
-                                <span class="badge bg-success float-end">${s.credits} cr.</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <h6 class="text-danger">❌ Excedentes (${excessCredits} créditos)</h6>
-                    <div class="list-group" style="max-height: 150px; overflow-y: auto;">
-                        ${excessSubjects.map(s => `
-                            <div class="list-group-item py-2">
-                                <small><strong>${s.external_subject_code}</strong> - ${s.external_subject_name}</small>
-                                <span class="badge bg-danger float-end">${s.credits} cr.</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
+        alertClass = 'alert-info';
+        summaryHTML = `
+            <h6><i class="fas fa-minus me-2"></i>Progreso Sin Cambios Significativos</h6>
+            <p class="mb-0">El cambio es menor a 0.1 puntos porcentuales</p>
         `;
     }
-}
-
-function runImpactAnalysis() {
-    const maxFreeElectiveCredits = parseInt(document.getElementById('maxFreeElectiveCredits').value) || 0;
-    const priorityCriteria = document.querySelector('input[name="priorityCriteria"]:checked').value;
     
-    // Close config modal
-    bootstrap.Modal.getInstance(document.getElementById('impactConfigModal')).hide();
+    changeSummary.className = `alert ${alertClass}`;
+    changeSummary.innerHTML = summaryHTML;
     
-    // Open analysis modal
-    const modal = new bootstrap.Modal(document.getElementById('impactAnalysisModal'));
+    // Set detailed explanation
+    document.getElementById('detailed-explanation').innerHTML = explanation || 'No hay explicación detallada disponible.';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('progressExplanationModal'));
     modal.show();
-    
-    // Reset content
-    document.getElementById('impactAnalysisContent').innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Analizando...</span>
-            </div>
-            <p class="mt-3">Analizando impacto en estudiantes...</p>
-            <small class="text-muted">
-                Simulando migración con límite de ${maxFreeElectiveCredits} créditos de libre elección
-            </small>
-        </div>
-    `;
-    
-    document.getElementById('exportImpactBtn').style.display = 'none';
-    
-    // Make AJAX request with new parameters
-    const csrfToken = document.querySelector('meta[name="csrf-token"]');
-    if (!csrfToken) {
-        showErrorMessage('Error: No se encontró el token CSRF. Recarga la página.');
-        return;
-    }
-
-    fetch(`/convalidation/${currentCurriculumId}/analyze-impact`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken.getAttribute('content')
-        },
-        body: JSON.stringify({
-            max_free_elective_credits: maxFreeElectiveCredits,
-            priority_criteria: priorityCriteria
-        })
-    })
-    .then(response => {
-        if (!response.ok) {
-            if (response.status === 419) {
-                throw new Error('Token CSRF expirado. Recarga la página.');
-            } else if (response.status === 500) {
-                throw new Error('Error interno del servidor. Revisa los logs.');
-            } else {
-                throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
-            }
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            currentImpactResults = data.results;
-            displayImpactResults(data.results);
-            document.getElementById('exportImpactBtn').style.display = 'inline-block';
-        } else {
-            showErrorMessage(data.message || 'Error al analizar el impacto');
-        }
-    })
-    .catch(error => {
-        console.error('Error completo:', error);
-        showErrorMessage('Error: ' + error.message);
-    });
 }
+
+// Inicialización cuando el documento esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Sistema de convalidación cargado correctamente');
+});
 </script>
 @endpush

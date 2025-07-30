@@ -75,6 +75,14 @@ class SubjectConvalidation extends Model
     }
 
     /**
+     * Check if this is a not convalidated subject (lost credit).
+     */
+    public function isNotConvalidated()
+    {
+        return $this->convalidation_type === 'not_convalidated';
+    }
+
+    /**
      * Get the display name for the convalidation.
      */
     public function getDisplayName()
@@ -83,8 +91,23 @@ class SubjectConvalidation extends Model
             return $this->internalSubject->name;
         } elseif ($this->isFreeElective()) {
             return 'Libre Elección';
+        } elseif ($this->isNotConvalidated()) {
+            return 'No Convalidada (Crédito Perdido)';
         }
         return 'Sin convalidación';
+    }
+
+    /**
+     * Get the display name for the convalidation type.
+     */
+    public function getConvalidationTypeDisplayAttribute()
+    {
+        return match($this->convalidation_type) {
+            'direct' => 'Convalidación Directa',
+            'free_elective' => 'Libre Elección',
+            'not_convalidated' => 'Materia Nueva',
+            default => $this->convalidation_type
+        };
     }
 
     /**
