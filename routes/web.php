@@ -25,6 +25,12 @@ Route::group(['prefix' => 'convalidation'], function () {
     // New route for impact analysis
     Route::post('/{externalCurriculum}/analyze-impact', [ConvalidationController::class, 'analyzeConvalidationImpact'])->name('convalidation.analyze-impact');
     
+    // New route for convalidations summary
+    Route::get('/{externalCurriculum}/convalidations-summary', [ConvalidationController::class, 'getConvalidationsSummary'])->name('convalidation.summary');
+    
+    // Test route for debugging
+    Route::post('/test-endpoint', [ConvalidationController::class, 'testEndpoint'])->name('convalidation.test');
+    
     // Convalidation management
     Route::post('/convalidation', [ConvalidationController::class, 'storeConvalidation'])->name('convalidation.store-convalidation');
     Route::delete('/convalidation/{convalidation}', [ConvalidationController::class, 'destroyConvalidation'])->name('convalidation.destroy-convalidation');

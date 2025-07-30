@@ -36,7 +36,13 @@ class ConvalidationTestSeeder extends Seeder
             ['code' => 'PROG201E', 'name' => 'Programación Avanzada', 'semester' => 2, 'credits' => 3],
             ['code' => 'BD101E', 'name' => 'Bases de Datos', 'semester' => 3, 'credits' => 3],
             ['code' => 'FIS101E', 'name' => 'Física I', 'semester' => 1, 'credits' => 4],
+            // FREE ELECTIVES - Para demostrar el sistema de límites
             ['code' => 'QUI101E', 'name' => 'Química General', 'semester' => 1, 'credits' => 3],
+            ['code' => 'BIO101E', 'name' => 'Biología Básica', 'semester' => 2, 'credits' => 4],
+            ['code' => 'PSI101E', 'name' => 'Psicología General', 'semester' => 3, 'credits' => 3],
+            ['code' => 'ECO101E', 'name' => 'Economía Básica', 'semester' => 4, 'credits' => 2],
+            ['code' => 'EST101E', 'name' => 'Estadística', 'semester' => 5, 'credits' => 4],
+            ['code' => 'FIL101E', 'name' => 'Filosofía', 'semester' => 6, 'credits' => 2],
         ];
 
         foreach ($externalSubjects as $subjectData) {
@@ -101,6 +107,22 @@ class ConvalidationTestSeeder extends Seeder
                 'status' => 'approved',
                 'notes' => 'Convalidada como electiva libre'
             ]);
+        }
+
+        // Create additional free electives to demonstrate credit limits
+        $freeElectiveCodes = ['BIO101E', 'PSI101E', 'ECO101E', 'EST101E', 'FIL101E'];
+        foreach ($freeElectiveCodes as $code) {
+            if (isset($externalSubjects[$code])) {
+                SubjectConvalidation::create([
+                    'external_curriculum_id' => $externalCurriculumId,
+                    'external_subject_id' => $externalSubjects[$code]->id,
+                    'internal_subject_code' => null,
+                    'convalidation_type' => 'free_elective',
+                    'equivalence_percentage' => 100.0,
+                    'status' => 'approved',
+                    'notes' => 'Convalidada como electiva libre - Materia de prueba para demostrar límites de créditos'
+                ]);
+            }
         }
     }
 }

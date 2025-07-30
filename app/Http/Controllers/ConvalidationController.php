@@ -293,9 +293,24 @@ class ConvalidationController extends Controller
     /**
      * Analyze the impact of migrating students from original curriculum to external curriculum with convalidations
      */
-    public function analyzeConvalidationImpact(ExternalCurriculum $externalCurriculum)
+    public function analyzeConvalidationImpact(ExternalCurriculum $externalCurriculum, Request $request)
     {
         try {
+            // Log para debugging
+            \Log::info('Iniciando análisis de impacto', [
+                'curriculum_id' => $externalCurriculum->id,
+                'request_data' => $request->all()
+            ]);
+
+            // Get configuration parameters
+            $maxFreeElectiveCredits = $request->input('max_free_elective_credits', 12);
+            $priorityCriteria = $request->input('priority_criteria', 'credits');
+
+            \Log::info('Parámetros obtenidos', [
+                'max_credits' => $maxFreeElectiveCredits,
+                'criteria' => $priorityCriteria
+            ]);
+
             // Get all students from the original curriculum
             $students = Student::with([
                 'subjects' => function($query) {
@@ -309,6 +324,17 @@ class ConvalidationController extends Controller
                 ->with(['externalSubject', 'internalSubject'])
                 ->get();
 
+            // Separate direct and free elective convalidations
+            $directConvalidations = $convalidations->where('convalidation_type', 'direct');
+            $freeElectiveConvalidations = $convalidations->where('convalidation_type', 'free_elective');
+
+            // Apply credit limit and priority to free electives
+            $selectedFreeElectives = $this->selectFreeElectives(
+                $freeElectiveConvalidations, 
+                $maxFreeElectiveCredits, 
+                $priorityCriteria
+            );
+
             // Get all subjects from original curriculum
             $originalSubjects = Subject::with(['prerequisites', 'requiredFor'])->get()->keyBy('code');
             $totalOriginalSubjects = $originalSubjects->count();
@@ -321,18 +347,33 @@ class ConvalidationController extends Controller
                 'students_worsened' => 0,
                 'affected_percentage' => 0,
                 'average_progress_change' => 0,
-                'total_convalidated_subjects' => $convalidations->count(),
-                'average_credits_reduced' => 0,
-                'average_semesters_reduced' => 0,
+                'total_convalidated_subjects' => $directConvalidations->count() + $selectedFreeElectives->count(),
+                'direct_convalidations_count' => $directConvalidations->count(),
+                'free_electives_used' => $selectedFreeElectives->count(),
+                'free_electives_available' => $freeElectiveConvalidations->count(),
+                'free_electives_credits_used' => $selectedFreeElectives->sum('externalSubject.credits'),
+                'free_electives_credits_available' => $freeElectiveConvalidations->sum('externalSubject.credits'),
+                'max_free_elective_credits' => $maxFreeElectiveCredits,
+                'excess_free_electives' => $freeElectiveConvalidations->count() - $selectedFreeElectives->count(),
                 'student_details' => [],
-                'subject_impact' => []
+                'subject_impact' => [],
+                'configuration' => [
+                    'max_free_elective_credits' => $maxFreeElectiveCredits,
+                    'priority_criteria' => $priorityCriteria
+                ]
             ];
 
             $totalProgressChange = 0;
             $subjectImpactMap = [];
 
             foreach ($students as $student) {
-                $impact = $this->calculateStudentConvalidationImpact($student, $convalidations, $originalSubjects, $totalOriginalSubjects);
+                $impact = $this->calculateStudentConvalidationImpactWithLimits(
+                    $student, 
+                    $directConvalidations, 
+                    $selectedFreeElectives, 
+                    $originalSubjects, 
+                    $totalOriginalSubjects
+                );
                 
                 if ($impact['has_impact']) {
                     $results['affected_students']++;
@@ -354,7 +395,9 @@ class ConvalidationController extends Controller
                         'new_progress' => round($impact['new_progress'], 1),
                         'progress_change' => round($impact['progress_change'], 1),
                         'convalidated_count' => $impact['convalidated_subjects_count'],
-                        'convalidated_subjects' => $impact['convalidated_subjects']
+                        'convalidated_subjects' => $impact['convalidated_subjects'],
+                        'direct_convalidations' => $impact['direct_convalidations'],
+                        'free_electives' => $impact['free_electives']
                     ];
 
                     // Track subject impact
@@ -380,25 +423,45 @@ class ConvalidationController extends Controller
                 ? round($totalProgressChange / $results['affected_students'], 1)
                 : 0;
 
-            // Calculate subject impact details
-            foreach ($convalidations as $convalidation) {
+            // Calculate subject impact details for both direct and free electives
+            $allSelectedConvalidations = $directConvalidations->merge($selectedFreeElectives);
+            
+            foreach ($allSelectedConvalidations as $convalidation) {
                 $externalSubjectCode = $convalidation->externalSubject->code;
                 $impactData = $subjectImpactMap[$externalSubjectCode] ?? ['students_benefited' => 0, 'total_benefit' => 0];
                 
                 $results['subject_impact'][] = [
                     'external_subject_code' => $externalSubjectCode,
                     'external_subject_name' => $convalidation->externalSubject->name,
-                    'internal_subject_name' => $convalidation->internalSubject ? $convalidation->internalSubject->name : 'N/A',
+                    'internal_subject_name' => $convalidation->internalSubject ? $convalidation->internalSubject->name : 'Libre Elección',
                     'convalidation_type' => $convalidation->convalidation_type,
+                    'credits' => $convalidation->externalSubject->credits,
                     'students_benefited' => $impactData['students_benefited'],
                     'average_benefit' => $impactData['students_benefited'] > 0 ? round($impactData['total_benefit'] / $impactData['students_benefited'], 1) : 0,
-                    'impact_type' => $this->classifyImpactType($impactData['students_benefited'], $results['total_students'])
+                    'impact_type' => $this->classifyImpactType($impactData['students_benefited'], $results['total_students']),
+                    'is_selected' => true
                 ];
             }
 
-            // Calculate average reductions (simplified calculation)
-            $results['average_credits_reduced'] = round($results['total_convalidated_subjects'] * 3, 1); // Assuming 3 credits per subject
-            $results['average_semesters_reduced'] = round($results['average_progress_change'] / 10, 1); // Rough estimate
+            // Add information about excess free electives
+            $excessFreeElectives = $freeElectiveConvalidations->diff($selectedFreeElectives);
+            foreach ($excessFreeElectives as $convalidation) {
+                $results['subject_impact'][] = [
+                    'external_subject_code' => $convalidation->externalSubject->code,
+                    'external_subject_name' => $convalidation->externalSubject->name,
+                    'internal_subject_name' => 'Libre Elección (Excedente)',
+                    'convalidation_type' => 'free_elective_excess',
+                    'credits' => $convalidation->externalSubject->credits,
+                    'students_benefited' => 0,
+                    'average_benefit' => 0,
+                    'impact_type' => 'none',
+                    'is_selected' => false
+                ];
+            }
+
+            // Calculate average reductions
+            $results['average_credits_reduced'] = round($results['total_convalidated_subjects'] * 3, 1);
+            $results['average_semesters_reduced'] = round($results['average_progress_change'] / 10, 1);
 
             return response()->json([
                 'success' => true,
@@ -406,6 +469,11 @@ class ConvalidationController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Error en análisis de impacto', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Error al analizar el impacto: ' . $e->getMessage()
@@ -414,30 +482,126 @@ class ConvalidationController extends Controller
     }
 
     /**
-     * Calculate the impact of convalidations on a specific student
+     * Get summary of convalidations for preview
      */
-    private function calculateStudentConvalidationImpact(Student $student, $convalidations, $originalSubjects, $totalOriginalSubjects)
+    public function getConvalidationsSummary(ExternalCurriculum $externalCurriculum)
     {
+        try {
+            $convalidations = SubjectConvalidation::where('external_curriculum_id', $externalCurriculum->id)
+                ->with(['externalSubject', 'internalSubject'])
+                ->get();
+
+            $summary = $convalidations->map(function ($convalidation) {
+                return [
+                    'id' => $convalidation->id,
+                    'external_subject_code' => $convalidation->externalSubject->code,
+                    'external_subject_name' => $convalidation->externalSubject->name,
+                    'internal_subject_code' => $convalidation->internalSubject ? $convalidation->internalSubject->code : null,
+                    'internal_subject_name' => $convalidation->internalSubject ? $convalidation->internalSubject->name : null,
+                    'type' => $convalidation->convalidation_type,
+                    'credits' => $convalidation->externalSubject->credits,
+                    'semester' => $convalidation->externalSubject->semester
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'convalidations' => $summary
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener el resumen: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Select free electives based on credit limit and priority criteria
+     */
+    private function selectFreeElectives($freeElectiveConvalidations, $maxCredits, $priorityCriteria)
+    {
+        // Convert to array for sorting
+        $electives = $freeElectiveConvalidations->toArray();
+
+        // Sort based on priority criteria
+        switch ($priorityCriteria) {
+            case 'credits':
+                usort($electives, function($a, $b) {
+                    return $b['external_subject']['credits'] - $a['external_subject']['credits'];
+                });
+                break;
+            case 'semester':
+                usort($electives, function($a, $b) {
+                    return $a['external_subject']['semester'] - $b['external_subject']['semester'];
+                });
+                break;
+            case 'students':
+                // For now, use credits as fallback since we'd need additional analysis
+                usort($electives, function($a, $b) {
+                    return $b['external_subject']['credits'] - $a['external_subject']['credits'];
+                });
+                break;
+        }
+
+        // Select electives up to the credit limit
+        $selectedElectives = collect();
+        $usedCredits = 0;
+
+        foreach ($electives as $elective) {
+            $electiveCredits = $elective['external_subject']['credits'];
+            if ($usedCredits + $electiveCredits <= $maxCredits) {
+                $selectedElectives->push(
+                    SubjectConvalidation::with(['externalSubject', 'internalSubject'])
+                        ->find($elective['id'])
+                );
+                $usedCredits += $electiveCredits;
+            }
+        }
+
+        return $selectedElectives;
+    }
+
+    /**
+     * Calculate the impact of convalidations on a specific student with credit limits
+     */
+    private function calculateStudentConvalidationImpactWithLimits(
+        Student $student, 
+        $directConvalidations, 
+        $selectedFreeElectives, 
+        $originalSubjects, 
+        $totalOriginalSubjects
+    ) {
         $passedSubjects = $student->subjects->keyBy('code');
-        $currentSubjects = $student->currentSubjects->keyBy('subject_code');
         
         // Calculate original progress
         $originalProgress = ($passedSubjects->count() / $totalOriginalSubjects) * 100;
         
-        // Simulate convalidations
+        // Apply direct convalidations
         $convalidatedSubjects = [];
+        $directConvalidationsApplied = [];
         $additionalPassedCount = 0;
         
-        foreach ($convalidations as $convalidation) {
-            if ($convalidation->convalidation_type === 'direct' && $convalidation->internalSubject) {
+        foreach ($directConvalidations as $convalidation) {
+            if ($convalidation->internalSubject) {
                 $internalSubjectCode = $convalidation->internalSubject->code;
                 
                 // If student hasn't passed this subject, they benefit from convalidation
                 if (!isset($passedSubjects[$internalSubjectCode])) {
                     $convalidatedSubjects[] = $internalSubjectCode;
+                    $directConvalidationsApplied[] = $convalidation->externalSubject->code;
                     $additionalPassedCount++;
                 }
             }
+        }
+
+        // Apply selected free electives (these don't map to specific internal subjects)
+        $freeElectivesApplied = [];
+        foreach ($selectedFreeElectives as $convalidation) {
+            $freeElectivesApplied[] = $convalidation->externalSubject->code;
+            // Free electives contribute to progress but don't map to specific subjects
+            $additionalPassedCount++;
         }
         
         // Calculate new progress with convalidations
@@ -451,23 +615,47 @@ class ConvalidationController extends Controller
             'new_progress' => $newProgress,
             'progress_change' => $progressChange,
             'convalidated_subjects_count' => $additionalPassedCount,
-            'convalidated_subjects' => $convalidatedSubjects
+            'convalidated_subjects' => array_merge($convalidatedSubjects, $freeElectivesApplied),
+            'direct_convalidations' => $directConvalidationsApplied,
+            'free_electives' => $freeElectivesApplied
         ];
     }
 
     /**
-     * Classify the impact type based on number of students benefited
+     * Test endpoint to verify CSRF and basic functionality
      */
-    private function classifyImpactType($studentsBenefited, $totalStudents)
+    public function testEndpoint(Request $request)
     {
-        $percentage = ($studentsBenefited / $totalStudents) * 100;
-        
-        if ($percentage >= 50) {
+        return response()->json([
+            'success' => true,
+            'message' => 'Endpoint funciona correctamente',
+            'csrf_token' => $request->header('X-CSRF-TOKEN'),
+            'method' => $request->method(),
+            'data' => $request->all()
+        ]);
+    }
+
+    /**
+     * Classify the impact type based on how many students benefit from a convalidation
+     */
+    private function classifyImpactType(int $studentsBenefited, int $totalStudents): string
+    {
+        if ($totalStudents == 0) {
+            return 'none';
+        }
+
+        $benefitPercentage = ($studentsBenefited / $totalStudents) * 100;
+
+        if ($benefitPercentage >= 75) {
             return 'high';
-        } elseif ($percentage >= 20) {
+        } elseif ($benefitPercentage >= 50) {
             return 'medium';
-        } else {
+        } elseif ($benefitPercentage >= 25) {
             return 'low';
+        } elseif ($benefitPercentage > 0) {
+            return 'minimal';
+        } else {
+            return 'none';
         }
     }
 }
