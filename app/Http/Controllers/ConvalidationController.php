@@ -419,7 +419,8 @@ class ConvalidationController extends Controller
                             'convalidated_count' => $impact['convalidated_subjects_count'] ?? 0,
                             'new_subjects_count' => $impact['new_subjects_count'] ?? 0,
                             'lost_credits_count' => $impact['lost_credits_count'] ?? 0,
-                            'details' => $impact['convalidation_details'] ?? []
+                            'details' => $impact['convalidation_details'] ?? [],
+                            'progress_explanation' => $impact['progress_explanation'] ?? 'Sin explicación disponible'
                         ];
                     }
                 } catch (\Exception $e) {
@@ -571,46 +572,51 @@ class ConvalidationController extends Controller
                 $newTotalSubjects = 1;
             }
             
-            // Calculate how many subjects from student's history are convalidated
+            // CORRECTED LOGIC: Check each convalidation to see if student has the external subject
             $convalidatedCount = 0;
-            $lostCreditsCount = 0;
             $convalidationDetails = [];
             
-            // Check direct convalidations
+            // Check direct convalidations - these require the student to have passed the EXTERNAL subject
             foreach ($directConvalidations as $convalidation) {
-                if ($convalidation->externalSubject && $convalidation->internalSubject) {
+                if ($convalidation->externalSubject) {
                     $externalSubjectCode = $convalidation->externalSubject->code;
-                    // In this context, we're checking if student has completed equivalent subjects
-                    // that map to this external subject through direct convalidation
-                    if (isset($passedSubjects[$convalidation->internalSubject->code])) {
+                    
+                    // If student passed a subject that matches this external subject code
+                    if ($passedSubjects->has($externalSubjectCode)) {
                         $convalidatedCount++;
                         $convalidationDetails[] = [
                             'type' => 'direct',
-                            'external_subject' => $convalidation->externalSubject->name ?? 'Unknown',
-                            'internal_subject' => $convalidation->internalSubject->name ?? 'Unknown'
+                            'student_subject' => $passedSubjects[$externalSubjectCode]->name,
+                            'external_subject' => $convalidation->externalSubject->name,
+                            'internal_subject' => $convalidation->internalSubject ? $convalidation->internalSubject->name : 'N/A'
                         ];
                     }
                 }
             }
             
-            // Check free electives (for future implementation)
+            // Check free elective convalidations
             foreach ($selectedFreeElectives as $convalidation) {
                 if ($convalidation->externalSubject) {
-                    // For now, we'll consider free electives as additional credit
-                    $convalidatedCount += 0.5; // Partial credit for electives
-                    $convalidationDetails[] = [
-                        'type' => 'free_elective',
-                        'external_subject' => $convalidation->externalSubject->name ?? 'Unknown'
-                    ];
+                    $externalSubjectCode = $convalidation->externalSubject->code;
+                    
+                    // If student passed a subject that matches this external subject code
+                    if ($passedSubjects->has($externalSubjectCode)) {
+                        $convalidatedCount++;
+                        $convalidationDetails[] = [
+                            'type' => 'free_elective',
+                            'student_subject' => $passedSubjects[$externalSubjectCode]->name,
+                            'external_subject' => $convalidation->externalSubject->name,
+                            'note' => 'Convalidada como libre elección'
+                        ];
+                    }
                 }
             }
             
-            // Check not convalidated (new subjects that must be taken)
+            // Calculate new subjects (subjects in new curriculum that student must take)
+            // These are subjects in the external curriculum that are marked as "not_convalidated"
             $newSubjectsCount = 0;
             foreach ($notConvalidatedConvalidations as $convalidation) {
                 if ($convalidation->externalSubject) {
-                    // These are NEW subjects in the external curriculum that the student must take
-                    // They are not "lost credits" but additional requirements
                     $newSubjectsCount++;
                     $convalidationDetails[] = [
                         'type' => 'new_subject',
@@ -620,40 +626,73 @@ class ConvalidationController extends Controller
                 }
             }
             
-            // Calculate subjects that were in original curriculum but NOT in new curriculum (truly lost credits)
-            $originalSubjectCodes = $passedSubjects->pluck('code')->toArray();
+            // Calculate lost credits: subjects student took but can't be convalidated
+            $lostCreditsCount = 0;
+            $convalidatedSubjectCodes = collect();
             
-            // Safety check for external curriculum subjects
-            $externalSubjects = $externalCurriculum->externalSubjects;
-            if ($externalSubjects === null) {
-                \Log::warning('No subjects found for external curriculum', ['curriculum_id' => $externalCurriculum->id]);
-                $externalSubjectCodes = [];
-            } else {
-                $externalSubjectCodes = $externalSubjects->pluck('code')->toArray();
+            // Collect all subject codes that were successfully convalidated
+            foreach ($directConvalidations as $convalidation) {
+                if ($convalidation->externalSubject && $passedSubjects->has($convalidation->externalSubject->code)) {
+                    $convalidatedSubjectCodes->push($convalidation->externalSubject->code);
+                }
             }
             
-            $lostCreditsCount = count(array_diff($originalSubjectCodes, $externalSubjectCodes));
+            foreach ($selectedFreeElectives as $convalidation) {
+                if ($convalidation->externalSubject && $passedSubjects->has($convalidation->externalSubject->code)) {
+                    $convalidatedSubjectCodes->push($convalidation->externalSubject->code);
+                }
+            }
+            
+            // Make sure we don't have duplicates
+            $convalidatedSubjectCodes = $convalidatedSubjectCodes->unique();
+            
+            // Lost credits are subjects the student passed but couldn't be convalidated
+            // Only count subjects that were NOT successfully convalidated
+            foreach ($passedSubjects as $subjectCode => $subject) {
+                if (!$convalidatedSubjectCodes->contains($subjectCode)) {
+                    $lostCreditsCount++;
+                    // Note: We don't add lost credits to the explanation by default 
+                    // as they are not relevant for the technical calculation display
+                }
+            }
             
             // Calculate new progress in external curriculum
             // Progress = subjects that can be convalidated / total subjects in new curriculum
             $newProgress = ($convalidatedCount / $newTotalSubjects) * 100;
             $progressChange = $newProgress - $originalProgress;
             
+            // Generate detailed explanation of percentage change
+            $progressExplanation = $this->generateProgressExplanationDetailed(
+                $originalProgress, 
+                $newProgress, 
+                $progressChange, 
+                $passedSubjects->count(), 
+                $originalTotalSubjects, 
+                $convalidatedCount, 
+                $newTotalSubjects, 
+                $newSubjectsCount,
+                $lostCreditsCount,
+                $convalidationDetails
+            );
+            
             return [
                 'has_impact' => abs($progressChange) > 0.1,
-                'original_progress' => $originalProgress,
-                'new_progress' => $newProgress,
-                'progress_change' => $progressChange,
+                'original_progress' => round($originalProgress, 1),
+                'new_progress' => round($newProgress, 1),
+                'progress_change' => round($progressChange, 1),
                 'original_subjects_passed' => $passedSubjects->count(),
                 'original_total_subjects' => $originalTotalSubjects,
                 'new_total_subjects' => $newTotalSubjects,
                 'convalidated_subjects_count' => $convalidatedCount,
                 'new_subjects_count' => $newSubjectsCount,
                 'lost_credits_count' => $lostCreditsCount,
-                'convalidation_details' => $convalidationDetails
+                'convalidation_details' => $convalidationDetails,
+                'progress_explanation' => $progressExplanation
             ];
         } catch (\Exception $e) {
             \Log::error('Error in calculateStudentConvalidationImpactCorrect: ' . $e->getMessage());
+            \Log::error('Student ID: ' . $student->id);
+            \Log::error('External Curriculum ID: ' . $externalCurriculum->id);
             
             // Return safe default values
             return [
@@ -667,7 +706,8 @@ class ConvalidationController extends Controller
                 'convalidated_subjects_count' => 0,
                 'new_subjects_count' => 0,
                 'lost_credits_count' => 0,
-                'convalidation_details' => []
+                'convalidation_details' => [],
+                'progress_explanation' => 'Error en el cálculo del progreso: ' . $e->getMessage()
             ];
         }
     }
@@ -854,6 +894,278 @@ class ConvalidationController extends Controller
                 'message' => 'Error interno del servidor al guardar la malla curricular',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Generate detailed explanation of why the progress percentage changed
+     */
+    private function generateProgressExplanationDetailed(
+        float $originalProgress, 
+        float $newProgress, 
+        float $progressChange, 
+        int $originalSubjectsPassed, 
+        int $originalTotalSubjects, 
+        float $convalidatedCount, 
+        int $newTotalSubjects, 
+        int $newSubjectsCount,
+        int $lostCreditsCount,
+        array $convalidationDetails
+    ): string {
+        $explanation = [];
+        
+        // Cálculo técnico directo
+        $explanation[] = "CÁLCULO DE PROGRESO CURRICULAR";
+        $explanation[] = "";
+        $explanation[] = "Malla Original:";
+        $explanation[] = "Materias aprobadas: {$originalSubjectsPassed}";
+        $explanation[] = "Total de materias: {$originalTotalSubjects}";
+        $explanation[] = "Progreso: " . round($originalProgress, 1) . "% ({$originalSubjectsPassed}/{$originalTotalSubjects})";
+        $explanation[] = "";
+        
+        $explanation[] = "Nueva Malla:";
+        $explanation[] = "Total de materias: {$newTotalSubjects}";
+        $explanation[] = "Materias convalidables: {$convalidatedCount}";
+        $explanation[] = "Progreso: " . round($newProgress, 1) . "% ({$convalidatedCount}/{$newTotalSubjects})";
+        $explanation[] = "";
+        
+        // Análisis matemático del cambio
+        $explanation[] = "ANÁLISIS DEL CAMBIO:";
+        if ($progressChange > 0.1) {
+            $explanation[] = "Incremento: " . round(abs($progressChange), 1) . " puntos porcentuales";
+            
+            if ($newTotalSubjects < $originalTotalSubjects) {
+                $diff = $originalTotalSubjects - $newTotalSubjects;
+                $explanation[] = "Causa: Reducción de {$diff} materias en nueva malla";
+                $explanation[] = "Cálculo: {$convalidatedCount}/{$newTotalSubjects} > {$originalSubjectsPassed}/{$originalTotalSubjects}";
+            } elseif ($convalidatedCount > $originalSubjectsPassed) {
+                $diff = $convalidatedCount - $originalSubjectsPassed;
+                $explanation[] = "Causa: {$diff} materias adicionales convalidadas";
+            }
+            
+        } elseif ($progressChange < -0.1) {
+            $explanation[] = "Disminución: " . round(abs($progressChange), 1) . " puntos porcentuales";
+            
+            if ($newTotalSubjects > $originalTotalSubjects) {
+                $diff = $newTotalSubjects - $originalTotalSubjects;
+                $explanation[] = "Causa: Incremento de {$diff} materias en nueva malla";
+                $explanation[] = "Cálculo: {$convalidatedCount}/{$newTotalSubjects} < {$originalSubjectsPassed}/{$originalTotalSubjects}";
+            } elseif ($convalidatedCount < $originalSubjectsPassed) {
+                $diff = $originalSubjectsPassed - $convalidatedCount;
+                $explanation[] = "Causa: {$diff} materias no pudieron convalidarse";
+            }
+            
+        } else {
+            $explanation[] = "Sin cambio significativo (< 0.1 puntos)";
+            $explanation[] = "Cálculo: {$convalidatedCount}/{$newTotalSubjects} ≈ {$originalSubjectsPassed}/{$originalTotalSubjects}";
+        }
+        
+        // Solo mostrar materias convalidadas exitosamente
+        $directConvalidations = [];
+        $freeElectiveConvalidations = [];
+        
+        foreach ($convalidationDetails as $detail) {
+            if ($detail['type'] === 'direct') {
+                $directConvalidations[] = $detail['student_subject'];
+            } elseif ($detail['type'] === 'free_elective') {
+                $freeElectiveConvalidations[] = $detail['student_subject'];
+            }
+        }
+        
+        if (!empty($directConvalidations) || !empty($freeElectiveConvalidations)) {
+            $explanation[] = "";
+            $explanation[] = "MATERIAS CONVALIDADAS:";
+            
+            if (!empty($directConvalidations)) {
+                $explanation[] = "";
+                $explanation[] = "Convalidaciones directas (" . count($directConvalidations) . "):";
+                foreach ($directConvalidations as $subject) {
+                    $explanation[] = "• {$subject}";
+                }
+            }
+            
+            if (!empty($freeElectiveConvalidations)) {
+                $explanation[] = "";
+                $explanation[] = "Libre elección (" . count($freeElectiveConvalidations) . "):";
+                foreach ($freeElectiveConvalidations as $subject) {
+                    $explanation[] = "• {$subject}";
+                }
+            }
+        }
+        
+        return implode("\n", $explanation);
+    }
+
+    /**
+     * Debug method to check why convalidations are not matching
+     * TEMPORAL - REMOVE IN PRODUCTION
+     */
+    public function debugConvalidationMatching(ExternalCurriculum $externalCurriculum)
+    {
+        try {
+            // Get a sample student (first one available)
+            $student = Student::with('subjects')->first();
+            
+            if (!$student) {
+                return response()->json(['error' => 'No student found']);
+            }
+            
+            // Get student's passed subjects
+            $passedSubjects = $student->subjects->where('pivot.status', 'passed');
+            
+            // Get ALL configured convalidations
+            $directConvalidations = SubjectConvalidation::where('external_curriculum_id', $externalCurriculum->id)
+                ->where('convalidation_type', 'direct')
+                ->with(['internalSubject', 'externalSubject'])
+                ->get();
+                
+            $freeElectiveConvalidations = SubjectConvalidation::where('external_curriculum_id', $externalCurriculum->id)
+                ->where('convalidation_type', 'free_elective')
+                ->with(['internalSubject', 'externalSubject'])
+                ->get();
+            
+            // Prepare debug data
+            $debugData = [
+                'curriculum_info' => [
+                    'id' => $externalCurriculum->id,
+                    'name' => $externalCurriculum->name,
+                    'institution' => $externalCurriculum->institution
+                ],
+                'student_info' => [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'passed_subjects_count' => $passedSubjects->count()
+                ],
+                'passed_subjects' => $passedSubjects->map(function($subject) {
+                    return [
+                        'id' => $subject->id,
+                        'code' => $subject->code,
+                        'name' => $subject->name
+                    ];
+                })->values()->toArray(),
+                'convalidations_info' => [
+                    'direct_count' => $directConvalidations->count(),
+                    'free_elective_count' => $freeElectiveConvalidations->count(),
+                    'total_count' => $directConvalidations->count() + $freeElectiveConvalidations->count()
+                ],
+                'direct_convalidations' => $directConvalidations->map(function($conv) {
+                    return [
+                        'id' => $conv->id,
+                        'internal_subject' => $conv->internalSubject ? [
+                            'id' => $conv->internalSubject->id,
+                            'code' => $conv->internalSubject->code,
+                            'name' => $conv->internalSubject->name
+                        ] : null,
+                        'external_subject' => $conv->externalSubject ? [
+                            'id' => $conv->externalSubject->id,
+                            'code' => $conv->externalSubject->code,
+                            'name' => $conv->externalSubject->name
+                        ] : null,
+                    ];
+                })->values()->toArray(),
+                'free_elective_convalidations' => $freeElectiveConvalidations->map(function($conv) {
+                    return [
+                        'id' => $conv->id,
+                        'external_subject' => $conv->externalSubject ? [
+                            'id' => $conv->externalSubject->id,
+                            'code' => $conv->externalSubject->code,
+                            'name' => $conv->externalSubject->name
+                        ] : null,
+                    ];
+                })->values()->toArray(),
+                'matching_analysis' => [],
+                'problem_diagnosis' => []
+            ];
+            
+            // CORRECTED LOGIC: Check if student has subjects matching EXTERNAL subjects in convalidations
+            $directMatches = 0;
+            $freeElectiveMatches = 0;
+            
+            // Check direct convalidations
+            foreach ($directConvalidations as $convalidation) {
+                if ($convalidation->externalSubject) {
+                    $externalCode = $convalidation->externalSubject->code;
+                    $matchingSubject = $passedSubjects->where('code', $externalCode)->first();
+                    
+                    if ($matchingSubject) {
+                        $directMatches++;
+                        $debugData['matching_analysis'][] = [
+                            'type' => 'direct',
+                            'match_found' => true,
+                            'student_subject' => [
+                                'code' => $matchingSubject->code,
+                                'name' => $matchingSubject->name
+                            ],
+                            'external_subject' => [
+                                'code' => $convalidation->externalSubject->code,
+                                'name' => $convalidation->externalSubject->name
+                            ],
+                            'maps_to_internal' => $convalidation->internalSubject ? [
+                                'code' => $convalidation->internalSubject->code,
+                                'name' => $convalidation->internalSubject->name
+                            ] : null
+                        ];
+                    } else {
+                        $debugData['matching_analysis'][] = [
+                            'type' => 'direct',
+                            'match_found' => false,
+                            'external_subject' => [
+                                'code' => $convalidation->externalSubject->code,
+                                'name' => $convalidation->externalSubject->name
+                            ],
+                            'reason' => 'Student did not pass this external subject'
+                        ];
+                    }
+                }
+            }
+            
+            // Check free elective convalidations
+            foreach ($freeElectiveConvalidations as $convalidation) {
+                if ($convalidation->externalSubject) {
+                    $externalCode = $convalidation->externalSubject->code;
+                    $matchingSubject = $passedSubjects->where('code', $externalCode)->first();
+                    
+                    if ($matchingSubject) {
+                        $freeElectiveMatches++;
+                        $debugData['matching_analysis'][] = [
+                            'type' => 'free_elective',
+                            'match_found' => true,
+                            'student_subject' => [
+                                'code' => $matchingSubject->code,
+                                'name' => $matchingSubject->name
+                            ],
+                            'external_subject' => [
+                                'code' => $convalidation->externalSubject->code,
+                                'name' => $convalidation->externalSubject->name
+                            ]
+                        ];
+                    }
+                }
+            }
+            
+            $debugData['results'] = [
+                'direct_matches' => $directMatches,
+                'free_elective_matches' => $freeElectiveMatches,
+                'total_matches' => $directMatches + $freeElectiveMatches
+            ];
+            
+            // Diagnosis
+            if ($directMatches === 0 && $freeElectiveMatches === 0) {
+                if ($directConvalidations->count() === 0 && $freeElectiveConvalidations->count() === 0) {
+                    $debugData['problem_diagnosis'][] = "❌ NO HAY CONVALIDACIONES CONFIGURADAS para esta malla externa";
+                } else {
+                    $debugData['problem_diagnosis'][] = "❌ El estudiante NO CURSÓ ninguna de las materias externas que están en las convalidaciones";
+                    $debugData['problem_diagnosis'][] = "💡 Esto es normal si el estudiante está en la malla original y la malla externa es diferente";
+                    $debugData['problem_diagnosis'][] = "💡 Las convalidaciones solo aplican si el estudiante cursó materias de la malla EXTERNA";
+                }
+            } else {
+                $debugData['problem_diagnosis'][] = "✅ Se encontraron {$directMatches} convalidaciones directas y {$freeElectiveMatches} de libre elección";
+            }
+            
+            return response()->json($debugData, 200, [], JSON_PRETTY_PRINT);
+            
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         }
     }
 }

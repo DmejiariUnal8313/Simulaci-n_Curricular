@@ -26,12 +26,16 @@
 ### 2. Cálculo de Progreso en Nueva Malla
 
 ```
-Progreso en Nueva Malla = (Materias Convalidadas) / (Total Materias Nueva Malla) × 100
+Progreso en Nueva Malla = (Materias del Estudiante que se Convalidaron) / (Total Materias Nueva Malla) × 100
 
 Donde:
-- Materias Convalidadas = Directas + (Libre Elección × 0.5)
-- Total Materias Nueva Malla = Todas las materias de la malla externa
+- Materias Convalidadas ≤ Materias que el Estudiante Realmente Cursó
+- NUNCA puede convalidar más de lo que cursó
+- Solo cuenta lo que tiene equivalencia directa o libre elección válida
 ```
+
+### ⚠️ **REGLA FUNDAMENTAL:**
+**Un estudiante SOLO puede convalidar materias que realmente cursó y aprobó en su malla original.**
 
 ### 3. Análisis de Impacto
 
@@ -69,10 +73,99 @@ Donde:
 - **Machine Learning** (materia nueva) ❗ DEBE CURSAR
 
 **Resultado**:
-- ✅ Convalidadas: 4 materias
+- ✅ Convalidadas: 4 materias (de las 5 que cursó)
 - ❗ Debe cursar: 3 materias nuevas
-- ❌ Créditos perdidos: "Redes I" (no está en nueva malla)
+- ❌ Materias sin equivalencia: 1 materia ("Redes I" no tiene equivalencia en nueva malla)
 - 📊 Progreso: 4/7 = 57.1%
+
+## ❓ ¿Por qué puede AUMENTAR el porcentaje al agregar materias nuevas?
+
+Esta es una pregunta muy común y la respuesta está en cómo se calcula el progreso:
+
+### Ejemplo Detallado:
+
+**Escenario**: Estudiante con 30 materias aprobadas
+
+**Malla Original** (40 materias total):
+- Progreso = 30/40 = 75%
+
+**Nueva Malla** (45 materias total, pero con convalidaciones):
+- Materias convalidadas directas: 25 materias
+- Materias nuevas: 20 materias (debe cursar)
+- Progreso = 25/45 = 55.6%
+- **Cambio: -19.4%** ⬇️
+
+**Pero si hay MÁS convalidaciones...**
+
+**Nueva Malla Optimizada** (30 materias total):
+- Materias convalidadas directas: 25 materias
+- Materias nuevas: 5 materias (debe cursar)
+- Progreso = 25/30 = 83.3%
+- **Cambio: +8.3%** ⬆️
+
+### 🔑 **Factores que Afectan el Porcentaje**:
+
+1. **Tamaño de la nueva malla**: Menos materias = mayor porcentaje
+2. **Cantidad de convalidaciones**: Más convalidaciones = mayor porcentaje
+3. **Eficiencia curricular**: Mallas más focalizadas pueden tener menos materias
+
+### 📊 **Fórmula Completa**:
+
+```
+Cambio de Porcentaje = (Materias_Convalidadas / Total_Nueva_Malla) - (Materias_Aprobadas / Total_Original_Malla)
+
+Positivo cuando: Materias_Convalidadas/Total_Nueva_Malla > Materias_Aprobadas/Total_Original_Malla
+```
+
+## 🆕 Nueva Funcionalidad: Explicación Detallada del Cambio de Progreso
+
+### 🔍 **Análisis de Impacto Mejorado**
+
+El sistema ahora incluye una explicación detallada de por qué el porcentaje de progreso de cada estudiante aumenta o disminuye al migrar a una nueva malla curricular.
+
+### 📊 **Información Mostrada**:
+
+1. **Cálculo Visual**:
+   - Progreso original: X materias / Y total = Z%
+   - Progreso nuevo: A materias / B total = C%
+
+2. **Explicación Contextual**:
+   - Por qué aumenta: Malla más eficiente, mejores convalidaciones
+   - Por qué disminuye: Más requisitos, materias nuevas obligatorias
+   - Factores específicos: Tamaño de malla, materias perdidas
+
+3. **Detalles Específicos**:
+   - Materias convalidadas exitosamente
+   - Materias nuevas que debe cursar
+   - Créditos de la malla original que ya no aplican
+
+### 🎯 **Acceso a la Explicación**:
+
+En el análisis de impacto, cada estudiante tiene un botón **"?"** que muestra:
+- Modal con explicación detallada
+- Gráficos visuales del cambio
+- Texto explicativo personalizado
+- Resumen de factores que influyen
+
+### 💡 **Ejemplos de Explicaciones**:
+
+**Progreso Aumenta (+15%)**:
+```
+✅ ¿Por qué AUMENTÓ el porcentaje?
+• La nueva malla tiene MENOS materias (30 vs 40)
+• Esto hace que cada materia convalidada tenga más peso porcentual
+• El estudiante tiene una buena proporción de convalidaciones
+• Sus materias aprobadas coinciden bien con la nueva malla
+```
+
+**Progreso Disminuye (-8%)**:
+```
+⚠️ ¿Por qué DISMINUYÓ el porcentaje?
+• La nueva malla tiene MÁS materias (45 vs 40)
+• Esto significa más requisitos para completar la carrera
+• Debe cursar 5 materias nuevas que no existían antes
+• 2 materias que aprobó ya no están en la nueva malla
+```
 
 ## Implicaciones para el Sistema
 

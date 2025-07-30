@@ -31,6 +31,9 @@ Route::group(['prefix' => 'convalidation'], function () {
     // Test route for debugging
     Route::post('/test-endpoint', [ConvalidationController::class, 'testEndpoint'])->name('convalidation.test');
     
+    // Debug route for convalidation matching - TEMPORAL, REMOVE IN PRODUCTION
+    Route::get('/{externalCurriculum}/debug-matching', [ConvalidationController::class, 'debugConvalidationMatching'])->name('convalidation.debug-matching');
+    
     // Convalidation management
     Route::post('/convalidation', [ConvalidationController::class, 'storeConvalidation'])->name('convalidation.store-convalidation');
     Route::delete('/convalidation/{convalidation}', [ConvalidationController::class, 'destroyConvalidation'])->name('convalidation.destroy-convalidation');
