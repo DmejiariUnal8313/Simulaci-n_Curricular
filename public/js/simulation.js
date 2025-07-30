@@ -958,6 +958,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Record prerequisite change
                 recordSimulationChange(subjectId, 'prerequisites', newPrereqs.join(','), oldPrereqs.join(','));
                 
+                // Update unlocks relationships for all subjects
+                updateUnlocksRelationships();
+                
                 console.log('Prerequisites changed:', {
                     subject: subjectId,
                     old: oldPrereqs,
@@ -1080,6 +1083,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Record change
             recordSimulationChange(subjectId, 'prerequisites', newPrereqs.join(','), oldPrereqs.join(','));
+            
+            // Update unlocks relationships for all subjects
+            updateUnlocksRelationships();
             
             // If card was selected, update highlights
             if (selectedCard === card) {
@@ -1388,6 +1394,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update unlocks relationships when new subjects are added
     function updateUnlocksRelationships() {
+        console.log('🔄 Updating unlocks relationships...');
+        
         // Clear all existing unlocks
         document.querySelectorAll('.subject-card').forEach(card => {
             card.dataset.unlocks = '';
@@ -1398,6 +1406,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const subjectCode = card.dataset.subjectId;
             const prerequisites = card.dataset.prerequisites.split(',').filter(p => p.trim());
             
+            if (prerequisites.length > 0) {
+                console.log(`📋 Subject ${subjectCode} has prerequisites: [${prerequisites.join(', ')}]`);
+            }
+            
             // For each prerequisite, add this subject to their unlocks
             prerequisites.forEach(prereqCode => {
                 const prereqCard = document.querySelector(`[data-subject-id="${prereqCode}"]`);
@@ -1406,12 +1418,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!currentUnlocks.includes(subjectCode)) {
                         currentUnlocks.push(subjectCode);
                         prereqCard.dataset.unlocks = currentUnlocks.join(',');
+                        console.log(`🔗 Added ${subjectCode} to unlocks of ${prereqCode}. Now unlocks: [${currentUnlocks.join(', ')}]`);
                     }
+                } else {
+                    console.warn(`⚠️ Prerequisite ${prereqCode} not found for subject ${subjectCode}`);
                 }
             });
         });
         
-        console.log('Unlocks relationships updated');
+        console.log('✅ Unlocks relationships updated');
     }
 
     // Get current curriculum state for export
