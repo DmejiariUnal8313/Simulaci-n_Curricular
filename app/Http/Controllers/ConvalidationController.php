@@ -353,9 +353,9 @@ class ConvalidationController extends Controller
             $results = [
                 'total_students' => $students->count(),
                 'affected_students' => 0,
-                'students_improved' => 0,
-                'students_same' => 0,
-                'students_worsened' => 0,
+                'students_with_improved_progress' => 0,
+                'students_with_no_change' => 0,
+                'students_with_reduced_progress' => 0,
                 'affected_percentage' => 0,
                 'average_progress_change' => 0,
                 'total_convalidated_subjects' => $directConvalidations->count() + $selectedFreeElectives->count(),
@@ -396,33 +396,35 @@ class ConvalidationController extends Controller
                         $externalCurriculum
                     );
 
-                    // Add null checks for safety
-                    if (isset($impact['has_impact']) && $impact['has_impact']) {
+                    // Clasificar a todos los estudiantes, no solo los afectados
+                    if (($impact['progress_change'] ?? 0) > 0.1) {
+                        $results['students_with_improved_progress']++;
                         $results['affected_students']++;
-                        
-                        if (($impact['progress_change'] ?? 0) > 0) {
-                            $results['students_improved']++;
-                        } elseif (($impact['progress_change'] ?? 0) < 0) {
-                            $results['students_worsened']++;
-                        } else {
-                            $results['students_same']++;
+                    } elseif (($impact['progress_change'] ?? 0) < -0.1) {
+                        $results['students_with_reduced_progress']++;
+                        $results['affected_students']++;
+                    } else {
+                        $results['students_with_no_change']++;
+                        // Los estudiantes sin cambio también están "afectados" por el análisis
+                        if (abs($impact['progress_change'] ?? 0) > 0) {
+                            $results['affected_students']++;
                         }
-
-                        $totalProgressChange += $impact['progress_change'] ?? 0;
-                        
-                        $results['student_details'][] = [
-                            'student_id' => $student->id,
-                            'name' => $student->name,
-                            'original_progress' => round($impact['original_progress'] ?? 0, 1),
-                            'new_progress' => round($impact['new_progress'] ?? 0, 1),
-                            'progress_change' => round($impact['progress_change'] ?? 0, 1),
-                            'convalidated_count' => $impact['convalidated_subjects_count'] ?? 0,
-                            'new_subjects_count' => $impact['new_subjects_count'] ?? 0,
-                            'lost_credits_count' => $impact['lost_credits_count'] ?? 0,
-                            'details' => $impact['convalidation_details'] ?? [],
-                            'progress_explanation' => $impact['progress_explanation'] ?? 'Sin explicación disponible'
-                        ];
                     }
+
+                    $totalProgressChange += $impact['progress_change'] ?? 0;
+                        
+                    $results['student_details'][] = [
+                        'student_id' => $student->id,
+                        'name' => $student->name,
+                        'original_progress' => round($impact['original_progress'] ?? 0, 1),
+                        'new_progress' => round($impact['new_progress'] ?? 0, 1),
+                        'progress_change' => round($impact['progress_change'] ?? 0, 1),
+                        'convalidated_subjects_count' => $impact['convalidated_subjects_count'] ?? 0,
+                        'new_subjects_count' => $impact['new_subjects_count'] ?? 0,
+                        'lost_credits_count' => $impact['lost_credits_count'] ?? 0,
+                        'convalidation_details' => $impact['convalidation_details'] ?? [],
+                        'progress_explanation' => $impact['progress_explanation'] ?? 'Sin explicación disponible'
+                    ];
                 } catch (\Exception $e) {
                     \Log::error('Error processing student ' . $student->id . ': ' . $e->getMessage(), [
                         'trace' => $e->getTraceAsString()
