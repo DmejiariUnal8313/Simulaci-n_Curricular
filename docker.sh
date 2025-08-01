@@ -137,6 +137,19 @@ composer() {
     docker-compose exec app composer "$@"
 }
 
+# Check database status
+db_status() {
+    print_status "Checking database status..."
+    echo "Subjects count:"
+    docker-compose exec app php artisan tinker --execute="echo 'Total subjects: ' . \App\Models\Subject::count();"
+    echo "Prerequisites count:"
+    docker-compose exec app php artisan tinker --execute="echo 'Total prerequisites: ' . DB::table('subject_prerequisites')->count();"
+    echo "Students count:"
+    docker-compose exec app php artisan tinker --execute="echo 'Total students: ' . \App\Models\Student::count();"
+    echo "Student-subject records:"
+    docker-compose exec app php artisan tinker --execute="echo 'Total academic records: ' . DB::table('student_subject')->count();"
+}
+
 # Force reinstall composer dependencies
 composer-reinstall() {
     print_status "Forcing Composer dependencies reinstallation..."
@@ -165,6 +178,7 @@ help() {
     echo "  logs       - Show container logs (optional: specify service)"
     echo "  shell      - Access application container"
     echo "  db-shell   - Access database container"
+    echo "  db-status  - Check database tables status"
     echo "  artisan    - Run Laravel artisan commands"
     echo "  composer   - Run composer commands"
     echo "  composer-reinstall - Force reinstall composer dependencies"
@@ -206,6 +220,9 @@ case "$1" in
         ;;
     db-shell)
         db_shell
+        ;;
+    db-status)
+        db_status
         ;;
     artisan)
         shift

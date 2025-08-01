@@ -36,8 +36,9 @@ docker-compose exec -T app php artisan migrate:fresh
 # Check if we should seed the database
 if [ "$1" = "--seed" ]; then
     print_status "Seeding database with basic data..."
-    # Only seed subjects and basic data, not students
+    # Seed subjects and prerequisites - essential for the system
     docker-compose exec -T app php artisan db:seed --class=SubjectSeeder --force
+    docker-compose exec -T app php artisan db:seed --class=PrerequisitesSeeder --force
     
     # Import students from CSV if file exists
     CSV_FILE="/app/datasets/Admon SI - Estudaintes activos con sus asignaturas - RE_MIG_PLA_EST_DATOS.csv"
@@ -69,6 +70,17 @@ if [ "$SUBJECT_COUNT" -eq 0 ]; then
     docker-compose exec -T app php artisan db:seed --class=SubjectSeeder --force
 else
     print_status "Subjects table already has $SUBJECT_COUNT records."
+fi
+
+# Create prerequisites table data if it doesn't exist
+print_status "Checking if prerequisites table has data..."
+PREREQ_COUNT=$(docker-compose exec -T app php artisan tinker --execute="echo DB::table('subject_prerequisites')->count();" | tail -1)
+
+if [ "$PREREQ_COUNT" -eq 0 ]; then
+    print_status "Prerequisites table is empty, running prerequisites seeder..."
+    docker-compose exec -T app php artisan db:seed --class=PrerequisitesSeeder --force
+else
+    print_status "Prerequisites table already has $PREREQ_COUNT records."
 fi
 
 print_status "Database initialization complete!"
