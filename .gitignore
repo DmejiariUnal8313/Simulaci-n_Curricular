@@ -22,3 +22,16 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Dataset confidencial - información académica real
+/datasets/
+datasets/
+*.csv
+
+# Archivos temporales de importación
+/storage/import_temp/
+import_temp/
+
+# Scripts de prueba (desarrollo)
+test_fresh_setup.sh
+test_complete_setup.sh
