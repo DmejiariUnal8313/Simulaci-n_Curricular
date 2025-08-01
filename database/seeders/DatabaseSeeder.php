@@ -13,12 +13,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Seed subjects and students for simulation
+        // Seed basic data - students will be imported from CSV
         $this->call([
             SubjectSeeder::class,
-            StudentSeeder::class,
             PrerequisitesSeeder::class,
-            StudentCurrentSubjectSeeder::class,
+            // StudentSeeder::class, // Commented out - students are imported from CSV
+            // StudentCurrentSubjectSeeder::class, // Commented out - will be created during CSV import
         ]);
     }
 }

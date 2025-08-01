@@ -40,6 +40,7 @@ Table subjects {
 Table students {
   id bigint [pk, increment]
   name varchar(255) [not null, note: 'Nombre completo del estudiante']
+  document varchar(20) [unique, note: 'Número de documento/cédula del estudiante']
   progress_percentage decimal(5,2) [not null, default: 0.00, note: 'Progreso académico (0-100%)']
   created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
   updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
@@ -50,6 +51,7 @@ Table students {
   - Análisis de impacto de simulaciones curriculares
   - Cálculo de progreso con convalidaciones aplicadas
   - Determinación de semestre actual basado en progreso
+  - Identificación única por número de documento
   '''
 }
 
@@ -263,6 +265,13 @@ Ref: student_convalidations.subject_convalidation_id > subject_convalidations.id
 // RESUMEN DE FUNCIONALIDADES DEL SISTEMA
 // ═══════════════════════════════════════════════════════════════════════════════
 //
+// IMPORTACIÓN DE DATOS:
+//    - Importar estudiantes reales desde archivos CSV
+//    - Agrupar registros por número de documento (cédula)
+//    - Asignar nombres aleatorios para privacidad
+//    - Separar historial académico (con notas) de materias actuales (sin notas)
+//    - Validar existencia de materias antes de importar
+//
 // SIMULACIÓN CURRICULAR:
 //    - Modificar temporalmente materias (semestre, prerrequisitos)
 //    - Analizar impacto en estudiantes actuales
@@ -285,6 +294,12 @@ Ref: student_convalidations.subject_convalidation_id > subject_convalidations.id
 //    - Cascadas para mantener integridad referencial
 //    - Enumeraciones para validar estados
 //    - Metadatos JSON para flexibilidad futura
+//
+// IMPORTACIÓN CSV:
+//    - Comando: php artisan import:academic-history archivo.csv
+//    - Agrupa por campo DOCUMENTO (cédula)
+//    - Genera nombres aleatorios (nombres hispanos)
+//    - Separa materias con nota (historial) vs sin nota (actuales)
 //
 // Ver documentación completa en: TABLA_FUNCIONALIDAD_EXPLICADA.md
 // ═══════════════════════════════════════════════════════════════════════════════

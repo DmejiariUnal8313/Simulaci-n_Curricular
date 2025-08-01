@@ -32,6 +32,7 @@
       "columns": [
         {"name": "id", "type": "BIGINT", "primaryKey": true, "autoIncrement": true},
         {"name": "name", "type": "VARCHAR(255)", "notNull": true},
+        {"name": "document", "type": "VARCHAR(20)", "nullable": true, "unique": true},
         {"name": "progress_percentage", "type": "DECIMAL(5,2)", "notNull": true, "default": "0.00"},
         {"name": "created_at", "type": "TIMESTAMP", "notNull": true},
         {"name": "updated_at", "type": "TIMESTAMP", "notNull": true}
