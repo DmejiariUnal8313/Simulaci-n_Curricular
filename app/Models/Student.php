@@ -11,6 +11,7 @@ class Student extends Model
 
     protected $fillable = [
         'name',
+        'document',
         'progress_percentage',
     ];
 
@@ -139,5 +140,41 @@ class Student extends Model
     {
         $this->progress_percentage = $this->calculateProgressPercentage();
         $this->save();
+    }
+
+    /**
+     * Recalculate progress for all students (useful after bulk import)
+     */
+    public static function recalculateAllProgress()
+    {
+        $count = 0;
+        
+        self::chunk(100, function ($students) use (&$count) {
+            foreach ($students as $student) {
+                $student->updateProgressPercentage();
+                $count++;
+            }
+        });
+        
+        return $count;
+    }
+
+    /**
+     * Get student statistics after import
+     */
+    public function getAcademicStats()
+    {
+        $passedSubjects = $this->subjects()->wherePivot('status', 'passed')->count();
+        $failedSubjects = $this->subjects()->wherePivot('status', 'failed')->count();
+        $currentSubjects = $this->currentSubjects()->count();
+        
+        return [
+            'passed_subjects' => $passedSubjects,
+            'failed_subjects' => $failedSubjects,
+            'current_subjects' => $currentSubjects,
+            'total_subjects' => $passedSubjects + $failedSubjects,
+            'progress_percentage' => $this->progress_percentage,
+            'gpa' => $this->gpa
+        ];
     }
 }

@@ -34,6 +34,18 @@ check_env_file() {
     return 0
 }
 
+# Give execute permissions to shell scripts
+permissions() {
+    print_status "Setting execute permissions for shell scripts..."
+    chmod +x ./docker.sh
+    chmod +x ./docker/init_db.sh
+    chmod +x ./docker/php/entrypoint.sh
+    chmod +x ./import_academic_history.sh
+    chmod +x ./test_import.sh
+    chmod +x ./test_import_docker.sh
+    print_status "Execute permissions set successfully"
+}
+
 # Setup the project
 setup() {
     print_status "Setting up Simulación Curricular project..."
@@ -43,6 +55,15 @@ setup() {
         print_error "Please create .env file first"
         exit 1
     fi
+    
+    # Give execute permissions to all shell scripts
+    print_status "Setting execute permissions for shell scripts..."
+    chmod +x ./docker.sh
+    chmod +x ./docker/init_db.sh
+    chmod +x ./docker/php/entrypoint.sh
+    chmod +x ./import_academic_history.sh
+    chmod +x ./test_import.sh
+    chmod +x ./test_import_docker.sh
     
     # Build and start containers
     print_status "Building and starting containers..."
@@ -54,7 +75,10 @@ setup() {
     
     # Initialize database
     print_status "Initializing database..."
+    
+    # Ensure init_db.sh has execute permissions before running
     if [ -f "./docker/init_db.sh" ]; then
+        chmod +x ./docker/init_db.sh 2>/dev/null || true
         ./docker/init_db.sh --seed
     else
         print_warning "Database initialization script not found, running manual setup..."
@@ -134,6 +158,7 @@ help() {
     echo ""
     echo "Commands:"
     echo "  setup      - Initial setup (build, migrate, seed)"
+    echo "  permissions - Set execute permissions for shell scripts"
     echo "  start      - Start containers"
     echo "  stop       - Stop containers"
     echo "  restart    - Restart containers"
@@ -159,6 +184,9 @@ help() {
 case "$1" in
     setup)
         setup
+        ;;
+    permissions)
+        permissions
         ;;
     start)
         start
