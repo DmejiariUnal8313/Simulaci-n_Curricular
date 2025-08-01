@@ -30,7 +30,7 @@ El comando `setup` ejecuta automáticamente:
 1. ✅ **Permisos**: Configura permisos de ejecución para todos los scripts
 2. ✅ **Entorno**: Crea `.env` desde `.env.example` si no existe
 3. ✅ **Docker**: Construye y inicia todos los contenedores
-4. ✅ **Base de Datos**: Ejecuta migraciones y seeders
+4. ✅ **Base de Datos**: Ejecuta migraciones, seeders de materias y prerrequisitos
 5. ✅ **Datos**: Importa estudiantes reales desde CSV (si está disponible)
 
 ### Comandos Adicionales
@@ -44,6 +44,9 @@ El comando `setup` ejecuta automáticamente:
 
 # Ver logs de la aplicación
 ./docker.sh logs app
+
+# Verificar estado de la base de datos
+./docker.sh db-status
 
 # Acceder al contenedor de la aplicación
 ./docker.sh shell

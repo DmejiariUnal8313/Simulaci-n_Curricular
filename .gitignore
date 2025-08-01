@@ -35,3 +35,4 @@ import_temp/
 # Scripts de prueba (desarrollo)
 test_fresh_setup.sh
 test_complete_setup.sh
+test_prerequisites.sh
